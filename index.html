@@ -19,42 +19,46 @@
       <button class="nav-item" data-filter="puzzle"><span>◇</span> 脑力解谜</button>
       <button class="nav-item" data-filter="casual"><span>◎</span> 休闲解压</button>
     </nav>
-    <div class="sidebar-note"><span class="small-star">✳</span><strong>眼睛会了，手试试。</strong><p>那些刷到过的小游戏，<br>这次真的能玩。</p><span class="version">独立开发 · v0.1</span></div>
+    <div class="sidebar-note"><span class="small-star">✳</span><strong>眼睛会了，手试试。</strong><p>那些刷到过的小游戏，<br>这次真的能玩。</p><span class="version">独立开发 · v0.2</span></div>
     <div class="sidebar-bottom"><i></i> 无需下载，即开即玩</div>
   </aside>
   <main>
     <header class="topbar"><span>小乐趣，大满足。<span class="topbar-en"> A LITTLE PLAY, EVERY DAY.</span></span><a href="https://github.com/santzhm186/webgamecollection" target="_blank" rel="noopener">GitHub <span>↗</span></a></header>
     <section class="hero">
       <div class="hero-copy"><div class="eyebrow"><span></span> 广告里的游戏，这里有真的</div><h1>别光看。<br>这次，<em>你来玩。</em><span class="hero-spark">✳</span></h1><p>拉开那根针，选对那扇门，拧下最后一颗螺丝。<br>熟悉的玩法，打开就能玩。</p><button class="primary" data-open="runner">先来一局 <span>↗</span></button><div class="hero-foot"><span>0 广告</span><i>·</i><span>0 下载</span><i>·</i><span>100% 真能玩</span></div></div>
-      <button class="hero-art" data-open="runner" aria-label="开始加减门冲关"><div class="art-grid"></div><span class="art-tag">本日推荐 <span>↗</span></span><canvas id="hero-canvas" width="600" height="500" aria-hidden="true"></canvas><div class="art-caption"><span>选对一扇门。<br><strong>带着你的队伍，冲！</strong></span><span class="round-arrow">↗</span></div><span class="floating-note">+20 还是 ×3？</span></button>
+      <button class="hero-art" data-open="runner" aria-label="开始加减门冲关"><div class="art-grid"></div><span class="art-tag">本日推荐 <span>↗</span></span><canvas id="hero-canvas" width="960" height="840" aria-hidden="true"></canvas><div class="art-caption"><span>选对一扇门。<br><strong>带着你的队伍，冲！</strong></span><span class="round-arrow">↗</span></div><span class="floating-note">+14 还是 ×2？</span></button>
     </section>
     <section class="collection" aria-labelledby="collection-title">
       <div class="section-heading"><div><span class="eyebrow muted">PICK YOUR NEXT OBSESSION</span><h2 id="collection-title">挑一个，玩真的。<span id="game-count">03</span></h2></div><label class="search"><span>⌕</span><input id="search" type="search" aria-label="搜索游戏" placeholder="找个小游戏…"></label></div>
       <div class="game-grid" id="game-grid">
         <article class="game-card" data-category="action" data-name="加减门冲关 跑酷 射击">
-          <button class="card-art runner-art" data-open="runner" aria-label="开始加减门冲关"><span class="card-number">01 / ACTION</span><canvas id="runner-preview" width="500" height="320" aria-hidden="true"></canvas><span class="play-circle">↗</span></button>
-          <div class="card-body"><div class="card-title"><h3>加减门冲关</h3><span class="badge">动作冲关</span></div><p>数学不难，难的是忍住不选错。</p><div class="card-footer"><span>← → 移动 <i>·</i> 约 30 秒 / 局</span><button data-open="runner">开玩 <span>↗</span></button></div></div>
+          <button class="card-art runner-art" data-open="runner" aria-label="开始加减门冲关"><span class="card-number">01 / ACTION</span><canvas id="runner-preview" width="960" height="840" aria-hidden="true"></canvas><span class="play-circle">↗</span></button>
+          <div class="card-body"><div class="card-title"><h3>加减门冲关</h3><span class="badge" data-progress="runner">0 / 3 关</span></div><p>数学不难，难的是忍住不选错。</p><div class="card-footer"><span>← → 移动 <i>·</i> 3 关 · 约 30 秒 / 局</span><button data-open="runner">开玩 <span>↗</span></button></div></div>
         </article>
         <article class="game-card" data-category="puzzle" data-name="拉针救人 拉针 解谜">
           <button class="card-art pin-art" data-open="pins" aria-label="开始拉针救人"><span class="card-number">02 / PUZZLE</span><canvas id="pins-preview" width="500" height="320" aria-hidden="true"></canvas><span class="play-circle">↗</span></button>
-          <div class="card-body"><div class="card-title"><h3>拉针救人</h3><span class="badge">脑力解谜</span></div><p>先拉哪一根？这次自己决定。</p><div class="card-footer"><span>点击拔针 <i>·</i> 3 个关卡</span><button data-open="pins">开玩 <span>↗</span></button></div></div>
+          <div class="card-body"><div class="card-title"><h3>拉针救人</h3><span class="badge" data-progress="pins">0 / 6 关</span></div><p>先拉哪一根？这次自己决定。</p><div class="card-footer"><span>点击拔针 <i>·</i> 6 个关卡</span><button data-open="pins">开玩 <span>↗</span></button></div></div>
         </article>
         <article class="game-card" data-category="casual" data-name="拧螺丝 螺丝 消除 收纳">
           <button class="card-art screw-art" data-open="screws" aria-label="开始拧螺丝"><span class="card-number">03 / CHILL</span><canvas id="screws-preview" width="500" height="320" aria-hidden="true"></canvas><span class="play-circle">↗</span></button>
-          <div class="card-body"><div class="card-title"><h3>拧螺丝</h3><span class="badge">休闲解压</span></div><p>一颗一颗，拆掉所有小烦恼。</p><div class="card-footer"><span>点击拆卸 <i>·</i> 3 个关卡</span><button data-open="screws">开玩 <span>↗</span></button></div></div>
+          <div class="card-body"><div class="card-title"><h3>拧螺丝</h3><span class="badge" data-progress="screws">0 / 6 关</span></div><p>一颗一颗，拆掉所有小烦恼。</p><div class="card-footer"><span>点击拆卸 <i>·</i> 6 个关卡</span><button data-open="screws">开玩 <span>↗</span></button></div></div>
         </article>
       </div>
       <p id="empty-state" hidden>还没有这个游戏，试试「拉针」或「螺丝」。</p>
     </section>
-    <section class="bottom-strip"><span class="strip-star">✳</span><div><h3>你的「我上我也行」，终于有地方验证了。</h3><p>每个游戏都能直接玩。进度只保存在当前浏览器。</p></div><span class="local-progress">已通关 <strong id="completed-count">0</strong> / 3</span></section>
+    <section class="bottom-strip"><span class="strip-star">✳</span><div><h3>你的「我上我也行」，终于有地方验证了。</h3><p>每个游戏都能直接玩。进度只保存在当前浏览器。</p></div><span class="local-stars">★ <strong id="star-count">0 / 45</strong></span><span class="local-progress">已通关 <strong id="completed-count">0</strong> / 3</span></section>
     <footer><span>玩得到 © <span id="year"></span></span><span>MADE FOR THE “LET ME TRY” MOMENT.</span><a href="https://github.com/santzhm186/webgamecollection/issues" target="_blank" rel="noopener">想玩什么？告诉我们 ↗</a></footer>
   </main>
   <dialog id="game-dialog" aria-labelledby="game-title">
-    <div class="dialog-heading"><div><span class="eyebrow muted" id="game-category"></span><h2 id="game-title"></h2></div><button class="icon-button" id="close-game" aria-label="关闭游戏">✕</button></div>
+    <div class="dialog-heading"><div><span class="eyebrow muted" id="game-category"></span><h2 id="game-title"></h2></div><div class="dialog-controls"><button id="sound-toggle" aria-pressed="false">♪ 音效关</button><button class="icon-button" id="close-game" aria-label="关闭游戏">✕</button></div></div>
+    <div id="level-picker" class="level-picker" role="group" aria-label="选择关卡"></div>
     <div class="game-toolbar"><span id="level-label"></span><button id="restart">↻ 重新开始</button></div>
+    <div id="game-hud" class="game-hud"></div>
     <div id="play-area"></div>
     <p class="game-instruction" id="game-instruction"></p>
+    <div class="helper-tools"><button id="hint-button">✦ 给点提示</button><button id="undo-button" hidden>↶ 撤销一步</button><span>三星：独立完成，冲关达到三星兵力</span></div>
     <div class="game-status" id="game-status" role="status" aria-live="polite"></div>
+    <div id="result-panel" class="result-panel" hidden></div>
     <div class="game-actions"><button class="primary" id="start-game">开始游戏 <span>→</span></button><button class="secondary" id="next-level" hidden>下一关 →</button></div>
   </dialog>
 </body>
