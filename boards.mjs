@@ -1,10 +1,90 @@
-import { PIN_LABELS, screwPosition } from './engine.mjs';
-export const PIN_POINTS = {
-  water: { x: 57, y: 144, width: 176 }, drain: { x: 57, y: 264, width: 176 },
-  treasure: { x: 263, y: 264, width: 174 }, spider: { x: 263, y: 144, width: 174 },
-  vent: { x: 263, y: 39, width: 174 }, bridge: { x: 57, y: 325, width: 176 },
-};
-const metallic = ['#93b5d2', '#e8b76d', '#88b2a1', '#d98f7a', '#b29bcf', '#a6c4c5'];
+// 游戏私有词汇与几何一律从游戏侧取：这是"渲染层不反向依赖规则层"的修正。
+// 之前是 import { PIN_LABELS, screwPosition } from './engine.mjs'，
+// 造成 boards（渲染）→ engine（规则）的反向依赖，也让宿主认识了 pins 的机关名。
+import { PIN_POINTS, pinLabel } from './games/pins/dictionary.js';
+import { screwPosition, screwEndLabel } from './games/screws/dictionary.js';
+import { t } from './src/core/i18n.js';
+
+/**
+ * 兼容再导出：PIN_POINTS 已移到 games/pins/dictionary.js（游戏私有布局）。
+ * 保留此处转发是为了不让调用方在本轮受影响；P3/P4 拆分后移除，
+ * 届时 app.mjs 应直接从 games/pins/dictionary.js 取。
+ */
+export { PIN_POINTS };
+
+/**
+ * DOM 类渲染器（kind: 'dom'）—— 拉针与拧螺丝的共用实现。
+ * ============================================================================
+ * 与 Canvas 渲染器的差别：这类玩法由**点击驱动**，不需要逐帧重画，
+ * 所以 draw() 只在状态变化时被宿主调用（manifest.timeDriven = false）。
+ *
+ * 交互约定：渲染器不判定规则，只把"玩家点了哪个目标"回报给宿主：
+ *   ctx.dispatch({ type, payload })
+ * 是否合法、是否计分、是否失败，全部由引擎决定（与既有实现一致）。
+ *
+ * 兼容说明：本文件同时保留 pinBoard()/screwBoard() 纯函数导出 ——
+ * 首页缩略图与 T6 冒烟测试都直接调用它们，不需要渲染器实例。
+ *
+ * @typedef {import('./src/core/contracts.js').GameRenderer} GameRenderer
+ */
+
+/**
+ * @param {object} options
+ * @param {(engine: object, options: object) => string} options.build   场景建造函数
+ * @param {'pin'|'screw'} options.target                                命中区类型（决定选择器与事件属性）
+ * @param {string} options.prefix                                       SVG defs 前缀，避免多实例 id 冲突
+ * @returns {() => GameRenderer}
+ */
+function createBoardRenderer({ build, target, prefix }) {
+  return function createRenderer() {
+    /** @type {HTMLElement|null} */
+    let host = null;
+    /** @type {((event: Event) => void)|null} */
+    let onClick = null;
+
+    return {
+      kind: 'dom',
+
+      mount(nextHost, engine, ctx) {
+        host = nextHost;
+        // 每次挂载用新的前缀：同时存在多个场景（如预览 + 对局）时 SVG defs id 不会互相覆盖
+        this._prefix = `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+        host.innerHTML = build(engine, { prefix: this._prefix });
+        onClick = event => {
+          const button = event.target.closest?.(target === 'pin' ? '[data-pin]' : '[data-plate]');
+          if (!button || button.disabled) return;
+          ctx?.dispatch?.({
+            type: target === 'pin' ? 'pull' : 'remove',
+            args: target === 'pin'
+              ? [button.dataset.pin]
+              : [Number(button.dataset.plate), Number(button.dataset.end)],
+          });
+        };
+        host.addEventListener('click', onClick);
+      },
+
+      draw(engine, options = {}) {
+        if (!host) return;
+        host.innerHTML = build(engine, { prefix: this._prefix, ...options });
+      },
+
+      /** 必须解绑：宿主会在切换关卡/关闭游戏时调用 */
+      destroy() {
+        if (host && onClick) host.removeEventListener('click', onClick);
+        if (host) host.innerHTML = '';
+        host = null;
+        onClick = null;
+      },
+    };
+  };
+}
+
+/** 拉针救人的渲染器工厂 */
+export const pinRenderer = createBoardRenderer({ build: pinBoard, target: 'pin', prefix: 'pin' });
+/** 拧螺丝的渲染器工厂 */
+export const screwRenderer = createBoardRenderer({ build: screwBoard, target: 'screw', prefix: 'screw' });
+
+export const metallic = ['#93b5d2', '#e8b76d', '#88b2a1', '#d98f7a', '#b29bcf', '#a6c4c5'];
 function defs(prefix) {
   return `<defs>
     <linearGradient id="${prefix}-jungle" x2="0" y2="1"><stop stop-color="#1c4a43"/><stop offset="1" stop-color="#102c30"/></linearGradient>
@@ -54,7 +134,7 @@ export function pinBoard(engine, { prefix = 'pin-main', decorative = false, high
     <path d="M337 148v11H218l-23 20M208 267v13h51M209 329h52" fill="none" stroke="#d3bd83" stroke-width="6" stroke-linejoin="round"/>
     <path d="M237 154l-9 5 9 5m-4 111 9 5-9 5" fill="none" stroke="#9a884f" stroke-width="2"/>
     ${water ? `<path d="M60 79q13-5 26 0t26 0t26 0t26 0t26 0t15 0v57H60z" fill="url(#${prefix}-water)"/><path class="water-ripple" d="M64 82q14-5 28 0t28 0t28 0t28 0t26 0" fill="none" stroke="#b5f5ed" stroke-width="2"/><g fill="#b1f4ea88"><circle cx="93" cy="109" r="3"/><circle cx="178" cy="120" r="2"/><circle cx="157" cy="96" r="2"/></g>` : `<path d="M126 141v41m10-41v41m-5-42v44" fill="none" stroke="#65d6dd" stroke-width="4" class="water-stream"/><path d="M85 79q40-12 95 0" fill="none" stroke="#5b879077" stroke-width="2"/>`}
-    ${!drained ? hot ? `<path d="M60 197q17-7 30 0t30 0t30 0t30 0t25 0v59H60z" fill="url(#${prefix}-lava)"/><path d="M62 251l9-23 13 12 10-29 17 20 15-23 15 24 14-19 14 29 18-22 18 29z" fill="#ffd675" opacity=".8"/><g class="lava-sparks" fill="#ffe49a"><circle cx="88" cy="186" r="2"/><circle cx="161" cy="182" r="3"/><circle cx="185" cy="202" r="2"/></g>` : `<g fill="#8a9c93" stroke="#546c68" stroke-width="2"><path d="M62 217l24-20 35 10 8 34-18 16H63z"/><path d="M119 212l28-21 31 11 24 32v23h-82z"/><path d="M82 229l24 8m36-21 18 19 25-10" fill="none" stroke="#bdccac"/></g>` : '<text x="132" y="226" text-anchor="middle" font-size="11" fill="#8baf9f" letter-spacing="2">已清空</text>'}
+    ${!drained ? hot ? `<path d="M60 197q17-7 30 0t30 0t30 0t30 0t25 0v59H60z" fill="url(#${prefix}-lava)"/><path d="M62 251l9-23 13 12 10-29 17 20 15-23 15 24 14-19 14 29 18-22 18 29z" fill="#ffd675" opacity=".8"/><g class="lava-sparks" fill="#ffe49a"><circle cx="88" cy="186" r="2"/><circle cx="161" cy="182" r="3"/><circle cx="185" cy="202" r="2"/></g>` : `<g fill="#8a9c93" stroke="#546c68" stroke-width="2"><path d="M62 217l24-20 35 10 8 34-18 16H63z"/><path d="M119 212l28-21 31 11 24 32v23h-82z"/><path d="M82 229l24 8m36-21 18 19 25-10" fill="none" stroke="#bdccac"/></g>` : '<text x="132" y="226" text-anchor="middle" font-size="11" fill="#8baf9f" letter-spacing="2">' + t('game.pins.canvasEmpty') + '</text>'}
     ${engine.spider ? `<g class="temple-spider" transform="translate(336 101)"><path d="M-8-4l-16-11-7 6m23 7-25 4-3 9m27-7-16 16 2 9M8-4l16-11 7 6M8-2l25 4 3 9M9 4l16 16-2 9" fill="none" stroke="#242332" stroke-width="5" stroke-linecap="round"/><ellipse rx="15" ry="12" fill="#383344"/><ellipse cy="-12" rx="10" ry="8" fill="#4b3d50"/><circle cx="-4" cy="-14" r="2" fill="#f5b76b"/><circle cx="4" cy="-14" r="2" fill="#f5b76b"/></g>` : engine.config.spider ? '<path d="M326 105l8 7 14-19" stroke="#82b890" stroke-width="4" fill="none"/>' : `<g fill="#8aa08255"><path d="M308 95l20-13 30 8 9 28h-62z"/><path d="M324 86l4 13 20-5" fill="none" stroke="#b6c8a355" stroke-width="2"/></g>`}
     ${engine.gas ? `<g class="gas-cloud" fill="#c4a9cf" opacity=".65"><ellipse cx="309" cy="76" rx="27" ry="13"/><ellipse cx="345" cy="67" rx="35" ry="15"/><ellipse cx="378" cy="83" rx="25" ry="12"/></g>` : ''}
     <path d="M315 56V40h45v16" fill="none" stroke="#857750" stroke-width="9"/>
@@ -63,13 +143,13 @@ export function pinBoard(engine, { prefix = 'pin-main', decorative = false, high
     ${engine.config.bridge ? engine.bridge ? `<g fill="#b59f70" stroke="#5c624e"><path d="M209 321h52v14h-52z"/><path d="M219 322v12m12-12v12m12-12v12m12-12v12" stroke-width="2"/></g>` : '<path d="M211 324v13h47v-13" fill="#102a31"/>' : ''}
     ${drained ? '<g fill="#748a7e"><path d="M65 346l18-23 20 12 15-17 27 18 23-9 29 22v10H65z"/></g>' : '<path d="M65 344h133" stroke="#718a7c44" stroke-width="2"/>'}
     ${explorer(337, 335, won, lost)}${won ? gem(292, 340, prefix, .8) + gem(382, 334, prefix, 1) : ''}
-    <g fill="#dbca97" font-family="system-ui" font-size="8" letter-spacing="1.5" opacity=".7"><text x="132" y="72" text-anchor="middle">WATER</text><text x="132" y="190" text-anchor="middle">${hot ? 'LAVA' : 'STONE'}</text><text x="337" y="190" text-anchor="middle">TREASURE</text></g>
+    <g fill="#dbca97" font-family="system-ui" font-size="8" letter-spacing="1.5" opacity=".7"><text x="132" y="72" text-anchor="middle">${t('game.pins.canvasWater')}</text><text x="132" y="190" text-anchor="middle">${t(hot ? 'game.pins.canvasLava' : 'game.pins.canvasStone')}</text><text x="337" y="190" text-anchor="middle">${t('game.pins.canvasTreasure')}</text></g>
     </g>
     ${decorative ? engine.config.pins.map(pin => { const p = PIN_POINTS[pin]; return `<g transform="translate(${p.x} ${p.y})"><rect y="-4" width="${p.width - 14}" height="8" rx="3" fill="url(#${prefix}-gold)" stroke="#8e6e34"/><circle cx="${p.width - 14}" r="12" fill="url(#${prefix}-gold)" stroke="#8e6e34" stroke-width="3"/><circle cx="${p.width - 14}" r="5" fill="#4b5541"/></g>`; }).join('') : ''}
     ${won ? '<g fill="#f1d77f"><path d="M101 47l3 7 7 3-7 3-3 7-3-7-7-3 7-3zM409 283l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></g>' : ''}
-    </svg>${decorative ? '' : [...engine.config.pins].sort((a, b) => PIN_POINTS[a].y - PIN_POINTS[b].y || PIN_POINTS[a].x - PIN_POINTS[b].x).map(pin => { const p = PIN_POINTS[pin], removed = engine.removed.has(pin); return `<button class="temple-pin ${removed ? 'pin-pulled' : ''} ${highlight === pin ? 'hint-glow' : ''}" data-pin="${pin}" style="left:${p.x / 480 * 100}%;top:${p.y / 420 * 100}%;width:${p.width / 480 * 100}%" ${removed || engine.status !== 'playing' ? 'disabled' : ''} aria-label="${PIN_LABELS[pin]}"><b>${PIN_LABELS[pin]}</b><span class="pin-ring">↗</span></button>`; }).join('')}
-    ${lost ? '<div class="scene-result failed-result"><span>机关失误</span><small>观察水流方向，再试一次</small></div>' : ''}
-    ${won ? '<div class="scene-result success-result"><span>宝藏到手！</span><small>安全抵达 · 救援成功</small></div>' : ''}
+    </svg>${decorative ? '' : [...engine.config.pins].sort((a, b) => PIN_POINTS[a].y - PIN_POINTS[b].y || PIN_POINTS[a].x - PIN_POINTS[b].x).map(pin => { const p = PIN_POINTS[pin], removed = engine.removed.has(pin); return `<button class="temple-pin ${removed ? 'pin-pulled' : ''} ${highlight === pin ? 'hint-glow' : ''}" data-pin="${pin}" style="left:${p.x / 480 * 100}%;top:${p.y / 420 * 100}%;width:${p.width / 480 * 100}%" ${removed || engine.status !== 'playing' ? 'disabled' : ''} aria-label="${pinLabel(pin)}"><b>${pinLabel(pin)}</b><span class="pin-ring">↗</span></button>`; }).join('')}
+    ${lost ? `<div class="scene-result failed-result"><span>${t('game.pins.sceneFail')}</span><small>${t('game.pins.sceneFailHint')}</small></div>` : ''}
+    ${won ? `<div class="scene-result success-result"><span>${t('game.pins.sceneWin')}</span><small>${t('game.pins.sceneWinHint')}</small></div>` : ''}
   </div>`;
 }
 function screwHead(x, y, prefix, radius = 12) {
@@ -85,10 +165,10 @@ export function screwBoard(engine, { prefix = 'screw-main', decorative = false, 
     <rect x="39" y="83" width="402" height="311" rx="22" fill="#634d3d44"/><rect x="39" y="77" width="402" height="311" rx="22" fill="url(#${prefix}-rubber)" stroke="#8baba7" stroke-width="2"/>
     <rect x="46" y="84" width="388" height="297" rx="18" fill="url(#${prefix}-grid)"/>
     <path d="M61 98h14m-14 0v14m358-14h-14m14 0v14M61 367h14m-14 0v-14m358 14h-14m14 0v-14" fill="none" stroke="#809b9944" stroke-width="2"/>
-    <text x="240" y="372" text-anchor="middle" font-family="system-ui" font-size="8" letter-spacing="3" fill="#99b6af55">TAKE IT APART. PIECE BY PIECE.</text>
+    <text x="240" y="372" text-anchor="middle" font-family="system-ui" font-size="8" letter-spacing="3" fill="#99b6af55">${t('game.screws.canvasMotto')}</text>
     <rect x="${left - 14}" y="12" width="${capacity * 48 + 28}" height="62" rx="13" fill="#735e45" opacity=".7"/>
     <rect x="${left - 14}" y="8" width="${capacity * 48 + 28}" height="62" rx="13" fill="#2c3c43" stroke="#b4b19a" stroke-width="1.3"/>
-    <text x="240" y="22" text-anchor="middle" font-size="7" letter-spacing="2.5" fill="#b9c8bf" font-family="system-ui">TEMP STORAGE</text>
+    <text x="240" y="22" text-anchor="middle" font-size="7" letter-spacing="2.5" fill="#b9c8bf" font-family="system-ui">${t('game.screws.canvasStorage')}</text>
     ${Array.from({ length: capacity }, (_, i) => { const x = left + i * 48 + 24; return `<rect x="${x - 18}" y="28" width="36" height="32" rx="8" fill="#152b34" stroke="${i < engine.slots.length ? '#cfcbb1' : '#6b817c'}" stroke-width="1.2"/>${i < engine.slots.length ? screwHead(x, 43, prefix, 10) : `<circle cx="${x}" cy="44" r="5" fill="none" stroke="#65817a77" stroke-dasharray="2 3"/>`}`; }).join('')}
     ${engine.plates.filter(p => !p.fallen || p.id === falling).map(p => `<g class="${p.id === falling ? 'falling-plate' : ''}" style="--angle:${p.angle}deg" transform="translate(${p.x} ${p.y}) rotate(${p.angle})" filter="url(#${prefix}-shadow)">
       <rect x="${-p.width / 2}" y="-22" width="${p.width}" height="60" rx="13" fill="${['#3f627e', '#926b36', '#3f6c5d', '#905145', '#695381', '#486d72'][p.id]}"/>
@@ -99,8 +179,8 @@ export function screwBoard(engine, { prefix = 'screw-main', decorative = false, 
       <text x="0" y="${p.removed.length === 3 ? 22 : 5}" text-anchor="middle" font-family="system-ui" font-size="${p.removed.length === 3 ? 9 : 13}" font-weight="800" letter-spacing="3" fill="#213c4b55">${String(p.id + 1).padStart(2, '0')}</text>
       ${p.removed.map((removed, end) => { const x = [-.37, .37, 0][end] * p.width; return `<circle cx="${x}" cy="1" r="12" fill="#183241" stroke="#122631" stroke-width="2"/>${removed ? `<circle cx="${x}" r="8" fill="#1c3541" stroke="#718c8b88"/>` : screwHead(x, 0, prefix)}`; }).join('')}
     </g>`).join('')}
-    ${engine.status === 'won' ? '<g fill="#e4e6a1"><path d="M216 202l16 16 35-39" fill="none" stroke="#d1e894" stroke-width="7" stroke-linecap="round"/><text x="240" y="252" text-anchor="middle" font-family="system-ui" font-size="18" letter-spacing="2">全部拆完</text></g>' : ''}
-    </svg>${decorative ? '' : engine.plates.filter(p => !p.fallen).map(p => p.removed.map((removed, end) => { if (removed) return ''; const pos = screwPosition(p, end), available = engine.available(p.id, end); return `<button class="screw-target ${highlight?.[0] === p.id && highlight?.[1] === end ? 'hint-glow' : ''}" data-plate="${p.id}" data-end="${end}" style="left:${pos.x / 480 * 100}%;top:${pos.y / 420 * 100}%;z-index:${p.id + 4}" ${available ? '' : 'disabled'} aria-label="${p.id + 1} 号金属片${['左侧', '右侧', '中央'][end]}螺丝"></button>`; }).join('')).join('')}
-    ${engine.status === 'lost' ? '<div class="scene-result failed-result"><span>暂存槽已满</span><small>撤销一步，或者重新挑战</small></div>' : ''}
+    ${engine.status === 'won' ? `<g fill="#e4e6a1"><path d="M216 202l16 16 35-39" fill="none" stroke="#d1e894" stroke-width="7" stroke-linecap="round"/><text x="240" y="252" text-anchor="middle" font-family="system-ui" font-size="18" letter-spacing="2">${t('game.screws.sceneWin')}</text></g>` : ''}
+    </svg>${decorative ? '' : engine.plates.filter(p => !p.fallen).map(p => p.removed.map((removed, end) => { if (removed) return ''; const pos = screwPosition(p, end), available = engine.available(p.id, end); return `<button class="screw-target ${highlight?.[0] === p.id && highlight?.[1] === end ? 'hint-glow' : ''}" data-plate="${p.id}" data-end="${end}" style="left:${pos.x / 480 * 100}%;top:${pos.y / 420 * 100}%;z-index:${p.id + 4}" ${available ? '' : 'disabled'} aria-label="${t('game.screws.plateLabel', { n: p.id + 1, end: screwEndLabel(end) })}"></button>`; }).join('')).join('')}
+    ${engine.status === 'lost' ? `<div class="scene-result failed-result"><span>${t('game.screws.sceneFail')}</span><small>${t('game.screws.sceneFailHint')}</small></div>` : ''}
   </div>`;
 }

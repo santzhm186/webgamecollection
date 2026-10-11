@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Runner, Pins, Screws, applyGate, RUNNER_LEVELS, PIN_LEVELS, SCREW_LEVELS, runnerBalance, solveScrews } from '../engine.mjs';
+// runner 已迁移到 games/runner/（P3）；pins 与 screws 暂时仍在根目录 engine.mjs（P4 迁移）。
+// 断言部分在迁移过程中**一行未改** —— 这是重构的安全网。
+import Runner, { applyGate, runnerBalance } from '../games/runner/engine.js';
+import RUNNER_LEVELS from '../games/runner/levels.js';
+import { Pins, PIN_LEVELS, Screws, SCREW_LEVELS, solveScrews } from '../engine.mjs';
 
 function runRoute(level, bits) {
   const game = new Runner(level); game.start();

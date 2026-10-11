@@ -1,80 +1,65 @@
-const gates = (choices, enemies, interval) => choices.map((choice, i) => ({ at: 3.5 + i * interval, choices: choice, enemy: enemies[i] }));
-export const RUNNER_LEVELS = [
-  { title: '海岸训练营', difficulty: '入门', initial: 16, boss: 110, stars: [110, 130, 145], bossAt: 25,
-    gates: gates([[['+', 14], ['×', 2]], [['×', 2], ['+', 26]], [['+', 32], ['×', 2]], [['×', 2], ['+', 48]], [['+', 64], ['×', 2]]], [6, 12, 18, 26, 40], 4.2) },
-  { title: '峡谷突围', difficulty: '进阶', initial: 14, boss: 110, stars: [110, 135, 165], bossAt: 27,
-    gates: gates([[['×', 2], ['+', 22]], [['+', 30], ['×', 2]], [['×', 3], ['+', 55]], [['+', 80], ['×', 2]], [['×', 2], ['+', 100]], [['+', 120], ['×', 2]]], [9, 18, 36, 54, 72, 110], 3.8) },
-  { title: '暮色要塞', difficulty: '挑战', initial: 12, boss: 250, stars: [250, 380, 560], bossAt: 28,
-    gates: gates([[['+', 18], ['×', 2]], [['×', 2], ['+', 30]], [['+', 36], ['×', 3]], [['×', 2], ['+', 75]], [['+', 90], ['×', 2]], [['×', 3], ['+', 120]], [['+', 160], ['×', 2]]], [8, 16, 26, 45, 65, 100, 145], 3.4) },
-];
-export const RUNNER_GATES = RUNNER_LEVELS[0].gates;
-export function applyGate(count, [operator, value]) {
-  if (operator === '+') return count + value;
-  if (operator === '×') return count * value;
-  return Math.max(0, count - value);
-}
-export class Runner {
-  constructor(level = 0) {
-    this.level = level; this.config = RUNNER_LEVELS[level]; this.time = 0;
-    this.army = this.config.initial; this.peak = this.army; this.side = 0; this.position = .25;
-    this.gate = 0; this.status = 'ready'; this.phase = 'run'; this.stars = 0; this.score = 0;
-    this.bossHealth = this.config.boss; this.battleInitial = 0; this.trace = []; this.event = null;
-    this.message = `带至少 ${this.config.boss} 人抵达要塞。蓝色门增加人数，绿色门翻倍，每波守卫会消耗兵力。`;
-  }
-  start() { if (this.status === 'ready') this.status = 'playing'; }
-  tick(delta) {
-    if (this.status !== 'playing') return;
-    const dt = Number.isFinite(delta) ? Math.max(0, Math.min(delta, .1)) : 0;
-    this.time += dt;
-    this.position += ((this.side === 0 ? .25 : .75) - this.position) * (1 - Math.exp(-dt * 18));
-    const gate = this.config.gates[this.gate];
-    if (gate && this.time >= gate.at) {
-      const before = this.army, choice = gate.choices[this.side];
-      const gained = applyGate(this.army, choice);
-      this.peak = Math.max(this.peak, gained); this.army = Math.max(0, gained - gate.enemy);
-      this.trace.push({ before, side: this.side, gained, after: this.army, enemy: gate.enemy });
-      this.event = { at: this.time, type: 'gate', gain: gained - before, loss: gate.enemy, side: this.side };
-      this.message = `${choice.join('')} → ${gained} 人，击退 ${gate.enemy} 名守卫，剩余 ${this.army} 人。`;
-      this.gate++;
-      if (!this.army) { this.status = 'lost'; this.message = '队伍耗尽了。观察下一波守卫人数，再选择增益门。'; }
-    }
-    if (this.time >= this.config.bossAt && this.phase === 'run' && this.status === 'playing') {
-      this.phase = 'boss'; this.battleInitial = this.army;
-      this.event = { at: this.time, type: 'boss' };
-      this.message = `要塞交战中：${this.battleInitial} 人对抗 ${this.config.boss} 名守卫。`;
-    }
-    if (this.phase === 'boss' && this.status === 'playing') {
-      const damage = Math.min(this.config.boss, (this.time - this.config.bossAt) / 2.8 * this.config.boss);
-      this.army = Math.max(0, Math.ceil(this.battleInitial - damage));
-      this.bossHealth = Math.max(0, Math.ceil(this.config.boss - damage));
-      if (damage >= Math.min(this.config.boss, this.battleInitial)) {
-        this.status = this.battleInitial >= this.config.boss ? 'won' : 'lost';
-        if (this.status === 'won') {
-          this.bossHealth = 0; this.army = this.battleInitial - this.config.boss;
-          this.stars = this.config.stars.filter(n => this.battleInitial >= n).length;
-          this.score = this.battleInitial * 10 + this.stars * 250;
-          this.message = `要塞突破！抵达 ${this.battleInitial} 人，战后剩余 ${this.army} 人，获得 ${this.stars} 星。`;
-        } else this.message = `距离突破还差 ${this.config.boss - this.battleInitial} 人。试着比较「加人数」与「翻倍」的收益。`;
-      }
-    }
-  }
-}
+/**
+ * 过渡文件：pins 与 screws 的规则层。
+ * ============================================================================
+ * ⚠️ P3 之后本文件**只剩两个游戏**，且是临时状态：
+ *   `games/runner/` 已完成迁移（引擎、渲染、关卡、manifest 全部在游戏目录内）。
+ *   P4 会把这里的 pins 与 screws 分别搬到 `games/pins/` 与 `games/screws/`，
+ *   届时本文件删除，仓库根目录不再有游戏逻辑。
+ *
+ * 现在保留它的原因：两个游戏的 manifest 已经通过动态 import 指向这里
+ * （见 games/pins/manifest.js 与 games/screws/manifest.js），
+ * 所以它们**已经走同一套注册表与入口**，P4 只需搬实现，manifest 不用改。
+ *
+ * 迁移状态总览（避免后来者误以为这里还是三合一）：
+ *   runner  ✅ 在 games/runner/
+ *   pins    ⏳ 引擎与渲染在本文件 + boards.mjs
+ *   screws  ⏳ 引擎与渲染在本文件 + boards.mjs
+ *
+ * 未变化的约束（tests/games.test.mjs 是安全网，迁移过程中断言一行未改）：
+ *   · 本文件不得触碰 DOM —— 这是 918 种拉针顺序、6 个棋盘可解性能在 Node 里穷举的前提
+ *   · 星级与分数由引擎判定，宿主只存不猜
+ */
+
+import { DIFFICULTY } from './src/core/labels.js';
+import { t as hostT } from './src/core/i18n.js';
+import { pinLabel } from './games/pins/dictionary.js';
+import { screwPosition, containsPlate } from './games/screws/dictionary.js';
+
+export { screwPosition, containsPlate };
+
+/** 取翻译函数：优先用宿主注入的 t，否则用 i18n 的当前语言（便于测试与 balance 脚本） */
+const pickT = (ctx) => (typeof ctx?.t === 'function' ? ctx.t : hostT);
+
 export const PIN_LEVELS = [
-  { title: '水与火', difficulty: '入门', pins: ['water', 'drain', 'treasure'] },
-  { title: '不速之客', difficulty: '入门', pins: ['water', 'treasure', 'spider', 'drain'], spider: true },
-  { title: '蒸汽密室', difficulty: '进阶', pins: ['treasure', 'vent', 'drain', 'water'], gas: true },
-  { title: '双重危机', difficulty: '进阶', pins: ['water', 'spider', 'treasure', 'vent', 'drain'], spider: true, gas: true },
-  { title: '断桥寻宝', difficulty: '挑战', pins: ['bridge', 'water', 'treasure', 'drain'], bridge: true },
-  { title: '神庙逃生', difficulty: '挑战', pins: ['treasure', 'bridge', 'vent', 'water', 'spider', 'drain'], spider: true, gas: true, bridge: true },
+  { titleKey: 'game.pins.level1', difficulty: DIFFICULTY.ENTRY, pins: ['water', 'drain', 'treasure'] },
+  { titleKey: 'game.pins.level2', difficulty: DIFFICULTY.ENTRY, pins: ['water', 'treasure', 'spider', 'drain'], spider: true },
+  { titleKey: 'game.pins.level3', difficulty: DIFFICULTY.ADVANCED, pins: ['treasure', 'vent', 'drain', 'water'], gas: true },
+  { titleKey: 'game.pins.level4', difficulty: DIFFICULTY.ADVANCED, pins: ['water', 'spider', 'treasure', 'vent', 'drain'], spider: true, gas: true },
+  { titleKey: 'game.pins.level5', difficulty: DIFFICULTY.CHALLENGE, pins: ['bridge', 'water', 'treasure', 'drain'], bridge: true },
+  { titleKey: 'game.pins.level6', difficulty: DIFFICULTY.CHALLENGE, pins: ['treasure', 'bridge', 'vent', 'water', 'spider', 'drain'], spider: true, gas: true, bridge: true },
 ];
-export const PIN_LABELS = { water: '引水', drain: '排空', treasure: '宝藏', spider: '蜘蛛', vent: '排气', bridge: '落桥' };
+
+/**
+ * 机关名 → 当前语言文案。**注意这是相对早期版本的一处破坏性改名**：
+ * 原来是 `PIN_LABELS` 常量对象（中文值），现在是函数。
+ * 改名理由：机关名是游戏私有词汇，且必须随语言变化，常量会在切换语言后过期。
+ * 键与坐标定义见 games/pins/dictionary.js。
+ */
+export { pinLabel };
+
 export class Pins {
-  constructor(level = 0) {
+  constructor(level = 0, ctx = {}) {
+    this.t = pickT(ctx);
     this.level = level; this.config = PIN_LEVELS[level]; this.hot = true; this.drained = false;
     this.spider = !!this.config.spider; this.gas = !!this.config.gas; this.bridge = !this.config.bridge;
     this.removed = new Set(); this.status = 'playing'; this.hints = 0; this.moves = 0; this.stars = 0; this.score = 0; this.lastPin = null;
-    this.message = '观察水流与机关的连接，清理危险后再放下宝藏。';
+    this.message = this.t('game.pins.intro');
   }
+
+  /**
+   * 当前所有**安全**的机关。这是整套拉针规则唯一的真值来源：
+   * hint() 直接取它，测试也用穷举验证"每一种安全顺序都能通关"。
+   */
   safePins() {
     if (this.status !== 'playing') return [];
     return this.config.pins.filter(pin => !this.removed.has(pin) && (
@@ -85,44 +70,60 @@ export class Pins {
       (pin === 'treasure' && this.drained && this.bridge && !this.spider && !this.gas)
     ));
   }
+
   hint() {
     const pin = this.safePins()[0]; if (!pin) return null;
-    this.hints++; this.message = `提示：现在可以安全操作「${PIN_LABELS[pin]}」机关。`; return pin;
+    this.hints++; this.message = this.t('game.pins.hint', { pin: pinLabel(pin) }); return pin;
   }
+
+  /** 拉一根针。非法操作返回 false 且**不产生任何副作用**。 */
   pull(pin) {
     if (this.status !== 'playing' || this.removed.has(pin) || !this.config.pins.includes(pin)) return false;
     this.removed.add(pin); this.moves++; this.lastPin = pin;
-    const fail = message => { this.status = 'lost'; this.message = message; };
-    if (pin === 'vent') { this.gas = false; this.message = '气体散去了。现在引水不会引发爆燃。'; }
+    const fail = key => { this.status = 'lost'; this.message = this.t(key); };
+    if (pin === 'vent') { this.gas = false; this.message = this.t('game.pins.vent'); }
     if (pin === 'spider') {
-      if (!this.hot) fail('岩浆已经冷却，蜘蛛沿通道逃向了探险家。先用热岩浆处理蜘蛛。');
-      else { this.spider = false; this.message = '蜘蛛落入热岩浆，危险解除。'; }
+      if (!this.hot) fail('game.pins.spiderFail');
+      else { this.spider = false; this.message = this.t('game.pins.spiderOk'); }
     }
     if (pin === 'water') {
-      if (this.gas) fail('水蒸气引燃了可燃气体！先从顶部排气口排出气体。');
-      else { this.hot = false; this.message = '水流让岩浆凝固成岩石。现在可以安全排空。'; }
+      if (this.gas) fail('game.pins.waterFail');
+      else { this.hot = false; this.message = this.t('game.pins.waterOk'); }
     }
     if (pin === 'drain') {
-      if (this.hot) fail('热岩浆冲入下方通道！先引水冷却。');
-      else if (this.spider) fail('蜘蛛还在密室里，随着通道打开跑了出来。');
-      else { this.drained = true; this.message = this.config.bridge ? '岩石已排出，通道安全了。落下石桥，就能连接宝藏与出口。' : '岩石滑入废料槽，通道安全了。'; }
+      if (this.hot) fail('game.pins.drainFailHot');
+      else if (this.spider) fail('game.pins.drainFailSpider');
+      else { this.drained = true; this.message = this.t(this.config.bridge ? 'game.pins.drainOkBridge' : 'game.pins.drainOk'); }
     }
     if (pin === 'bridge') {
-      if (!this.drained) fail('石桥撞上了未清理的岩浆槽，通道坍塌了！先排空槽内岩石。');
-      else { this.bridge = true; this.message = '石桥落下，宝藏与出口连通了。'; }
+      if (!this.drained) fail('game.pins.bridgeFail');
+      else { this.bridge = true; this.message = this.t('game.pins.bridgeOk'); }
     }
     if (pin === 'treasure') {
-      if (!this.drained || this.spider || this.gas) fail('危险还没处理完，宝藏掉入了危险通道。');
-      else if (!this.bridge) fail('石桥还没放下，宝藏掉进了沟壑！');
+      if (!this.drained || this.spider || this.gas) fail('game.pins.treasureDanger');
+      else if (!this.bridge) fail('game.pins.treasureNoBridge');
       else {
         this.status = 'won'; this.stars = this.hints === 0 ? 3 : this.hints <= 2 ? 2 : 1;
         this.score = this.config.pins.length * 200 + this.stars * 300;
-        this.message = `探险家安全拿到了宝藏！${this.moves} 步完成，获得 ${this.stars} 星。`;
+        this.message = this.t('game.pins.win', { moves: this.moves, stars: this.stars });
       }
     }
     return true;
   }
+
+  hud() {
+    return [
+      { label: this.t('game.pins.hudPins'), value: `${this.removed.size} / ${this.config.pins.length}` },
+      { label: this.t('game.pins.hudHints'), value: this.hints, tone: this.hints > 0 ? 'warn' : 'normal' },
+    ];
+  }
+
+  metrics() {
+    return { order: [...this.removed].join(','), moves: this.moves, hints: this.hints };
+  }
 }
+
+/** 螺丝关卡布局（每片的几何数据） */
 export const SCREW_LEVELS = [
   [{ x: 240, y: 273, angle: 0, width: 270 }, { x: 240, y: 228, angle: -36, width: 245 }, { x: 240, y: 190, angle: 34, width: 245 }],
   [{ x: 240, y: 280, angle: 0, width: 280 }, { x: 198, y: 226, angle: 55, width: 225 }, { x: 282, y: 222, angle: -55, width: 225 }, { x: 240, y: 170, angle: 0, width: 280 }],
@@ -131,78 +132,117 @@ export const SCREW_LEVELS = [
   [{ x: 240, y: 290, angle: 0, width: 295, bolts: 3 }, { x: 194, y: 238, angle: 62, width: 255 }, { x: 286, y: 238, angle: -62, width: 255 }, { x: 240, y: 185, angle: 0, width: 275, bolts: 3 }, { x: 240, y: 210, angle: -28, width: 275 }],
   [{ x: 240, y: 290, angle: 0, width: 295, bolts: 3 }, { x: 185, y: 244, angle: 65, width: 250, bolts: 3 }, { x: 295, y: 244, angle: -65, width: 250, bolts: 3 }, { x: 240, y: 215, angle: 30, width: 275 }, { x: 240, y: 181, angle: -30, width: 275 }, { x: 240, y: 155, angle: 0, width: 230, bolts: 3 }],
 ];
-export const SCREW_RULES = [
-  { title: '热身拆卸', capacity: 4, difficulty: '入门' }, { title: '交错金属', capacity: 4, difficulty: '入门' },
-  { title: '第三颗螺丝', capacity: 4, difficulty: '进阶' }, { title: '空间紧张', capacity: 3, difficulty: '进阶' },
-  { title: '层层解锁', capacity: 3, difficulty: '挑战' }, { title: '精密拆解', capacity: 3, difficulty: '挑战' },
+
+/**
+ * 螺丝关卡元数据（标题、槽位容量、难度）。
+ * 命名说明：早期叫 SCREW_RULES，语义含糊 —— 它描述的是关卡元信息而非"规则"，
+ * 与 SCREW_LEVELS（布局）成对，改名后不易误用。
+ */
+export const SCREW_LEVEL_META = [
+  { titleKey: 'game.screws.level1', capacity: 4, difficulty: DIFFICULTY.ENTRY },
+  { titleKey: 'game.screws.level2', capacity: 4, difficulty: DIFFICULTY.ENTRY },
+  { titleKey: 'game.screws.level3', capacity: 4, difficulty: DIFFICULTY.ADVANCED },
+  { titleKey: 'game.screws.level4', capacity: 3, difficulty: DIFFICULTY.ADVANCED },
+  { titleKey: 'game.screws.level5', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
+  { titleKey: 'game.screws.level6', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
 ];
-export function screwPosition(plate, end) {
-  const d = [-.37, .37, 0][end] * plate.width, a = plate.angle * Math.PI / 180;
-  return { x: plate.x + d * Math.cos(a), y: plate.y + d * Math.sin(a) };
-}
-function contains(plate, point) {
-  const a = -plate.angle * Math.PI / 180, dx = point.x - plate.x, dy = point.y - plate.y;
-  return Math.abs(dx * Math.cos(a) - dy * Math.sin(a)) < plate.width / 2 + 9 && Math.abs(dx * Math.sin(a) + dy * Math.cos(a)) < 36;
-}
+
 export class Screws {
-  constructor(level = 0) {
-    this.level = level; this.config = SCREW_RULES[level];
+  constructor(level = 0, ctx = {}) {
+    this.t = pickT(ctx);
+    this.level = level; this.config = SCREW_LEVEL_META[level];
     this.plates = SCREW_LEVELS[level].map((p, id) => ({ ...p, id, removed: Array(p.bolts || 2).fill(false), fallen: false }));
     this.slots = []; this.status = 'playing'; this.moves = 0; this.hints = 0; this.undos = 0; this.history = []; this.stars = 0; this.score = 0; this.event = null;
-    this.message = `暂存槽有 ${this.config.capacity} 格。拆完一整片金属，其螺丝会自动收走。每关可撤销一次。`;
+    this.message = this.t('game.screws.intro', { capacity: this.config.capacity });
   }
+
+  /** 这颗螺丝现在能不能拆：未被拆过、片未脱落，且没有被 id 更大的片遮住 */
   available(id, end) {
     const plate = this.plates[id];
     if (!plate || !Number.isInteger(end) || end < 0 || end >= plate.removed.length || plate.fallen || plate.removed[end] || this.status !== 'playing') return false;
-    return !this.plates.some(other => other.id > id && !other.fallen && contains(other, screwPosition(plate, end)));
+    // 遮挡判定与渲染层的 z-index 约定共用同一实现（games/screws/dictionary.js）
+    return !this.plates.some(other => other.id > id && !other.fallen && containsPlate(other, screwPosition(plate, end)));
   }
+
   remove(id, end) {
     if (!this.available(id, end)) return false;
     this.history.push({ removed: this.plates.map(p => [...p.removed]), slots: [...this.slots], moves: this.moves });
     const plate = this.plates[id]; plate.removed[end] = true; this.slots.push(id); this.moves++;
     this.event = { id, end, fallen: false };
     if (plate.removed.every(Boolean)) {
+      // 整片脱落 → 先归还槽位，再判断是否满槽失败。顺序错了会把"刚好拆完"误判为失败。
       plate.fallen = true; this.event.fallen = true; this.slots = this.slots.filter(slot => slot !== id);
-      this.message = `第 ${id + 1} 片金属脱落，归还 ${plate.removed.length} 个暂存位置。`;
-    } else this.message = `这片还剩 ${plate.removed.filter(value => !value).length} 颗螺丝。槽位：${this.slots.length} / ${this.config.capacity}。`;
+      this.message = this.t('game.screws.fallen', { n: id + 1, slots: plate.removed.length });
+    } else this.message = this.t('game.screws.remaining', { n: plate.removed.filter(value => !value).length, used: this.slots.length, capacity: this.config.capacity });
+
     if (this.plates.every(p => p.fallen)) {
       this.status = 'won'; this.stars = this.hints + this.undos === 0 ? 3 : this.hints + this.undos <= 2 ? 2 : 1;
       this.score = this.moves * 100 + this.stars * 300;
-      this.message = `全部拆完！${this.moves} 颗螺丝，获得 ${this.stars} 星。`;
+      this.message = this.t('game.screws.win', { moves: this.moves, stars: this.stars });
     } else if (this.slots.length >= this.config.capacity) {
-      this.status = 'lost'; this.message = this.undos === 0 ? '暂存槽已满。可以撤销一步，调整拆卸顺序。' : '暂存槽已满，撤销机会已用完。重试时优先拆完同一片金属。';
+      this.status = 'lost'; this.message = this.t(this.undos === 0 ? 'game.screws.fullCanUndo' : 'game.screws.fullNoUndo');
     }
     return true;
   }
+
+  /** 每关一次撤销。用于从"槽满失败"中恢复，也是本玩法唯一的容错手段。 */
   undo() {
     if (this.undos >= 1 || !this.history.length || this.status === 'won') return false;
     const state = this.history.pop(); this.undos++;
     this.plates.forEach((p, i) => { p.removed = state.removed[i]; p.fallen = p.removed.every(Boolean); });
     this.slots = state.slots; this.moves = state.moves; this.status = 'playing'; this.event = null;
-    this.message = '已撤销上一步。现在可以选择另一颗螺丝。'; return true;
+    this.message = this.t('game.screws.undone'); return true;
   }
+
+  /** 提示：用 DFS 找一条能走到底的拆卸顺序，返回第一步 */
   hint() {
     if (this.status !== 'playing') return null;
     const path = solveScrews(this);
-    if (!path?.length) { this.message = '当前槽位无法完成拆卸，试试撤销一步。'; return null; }
-    this.hints++; this.message = `提示：先拆第 ${path[0][0] + 1} 片上高亮的螺丝。`; return path[0];
+    if (!path?.length) { this.message = this.t('game.screws.noSolution'); return null; }
+    this.hints++; this.message = this.t('game.screws.hint', { n: path[0][0] + 1 }); return path[0];
+  }
+
+  hud() {
+    return [
+      { label: this.t('game.screws.hudPlates'), value: `${this.plates.filter(p => p.fallen).length} / ${this.plates.length}` },
+      { label: this.t('game.screws.hudSlots'), value: `${this.slots.length} / ${this.config.capacity}`, tone: this.slots.length >= this.config.capacity - 1 ? 'warn' : 'normal' },
+      { label: this.t('game.screws.hudUndo'), value: 1 - this.undos },
+    ];
+  }
+
+  metrics() {
+    // 导出**当前局面**而不是操作序列：撤销会重写历史，局面才是可重放的事实来源。
+    // plates：每片金属的螺丝状态位（'11' / '101' …），服务端可据此重放校验。
+    return {
+      plates: this.plates.map(p => p.removed.map(Number).join('')).join('|'),
+      moves: this.moves, hints: this.hints, undos: this.undos,
+    };
   }
 }
+
+/**
+ * 求解器：深度优先 + 位掩码状态记忆化，寻找一条完整的拆卸顺序。
+ *
+ * 状态空间很小（最多 6 片 × 3 孔），所以朴素搜到底即可，不需要启发式。
+ * 两个用途：① 提示功能 ② 测试证明每个棋盘都可解（否则玩家会卡死在无解关卡）。
+ * @returns {Array<[number, number]>|null} [[片 id, 孔位], …]，无解返回 null
+ */
 export function solveScrews(game) {
   const initial = game.plates.map(p => p.removed.reduce((mask, v, i) => mask | (v ? 1 << i : 0), 0));
   const full = game.plates.map(p => (1 << p.removed.length) - 1), seen = new Set();
+
   function search(masks) {
     if (masks.every((m, i) => m === full[i])) return [];
     const key = masks.join(','); if (seen.has(key)) return null; seen.add(key);
     const used = masks.reduce((n, mask, i) => n + (mask === full[i] ? 0 : mask.toString(2).split('1').length - 1), 0);
-    if (used >= game.config.capacity) return null;
+    if (used >= game.config.capacity) return null;   // 槽位已满且未拆完 → 这条路走不通
     for (let id = masks.length - 1; id >= 0; id--) {
       if (masks[id] === full[id]) continue;
       const plate = game.plates[id];
       for (let end = 0; end < plate.removed.length; end++) {
         if (masks[id] & (1 << end)) continue;
         const point = screwPosition(plate, end);
-        if (game.plates.some((p, i) => i > id && masks[i] !== full[i] && contains(p, point))) continue;
+        if (game.plates.some((p, i) => i > id && masks[i] !== full[i] && containsPlate(p, point))) continue;
         const next = [...masks]; next[id] |= 1 << end;
         const tail = search(next); if (tail) return [[id, end], ...tail];
       }
@@ -210,16 +250,4 @@ export function solveScrews(game) {
     return null;
   }
   return search(initial);
-}
-export function runnerBalance(level) {
-  const config = RUNNER_LEVELS[level], outcomes = [];
-  for (let bits = 0; bits < 2 ** config.gates.length; bits++) {
-    let army = config.initial;
-    for (let i = 0; i < config.gates.length; i++) {
-      const gate = config.gates[i]; army = Math.max(0, applyGate(army, gate.choices[(bits >> i) & 1]) - gate.enemy);
-      if (!army) break;
-    }
-    outcomes.push(army);
-  }
-  return { routes: outcomes.length, winning: outcomes.filter(n => n >= config.boss).length, max: Math.max(...outcomes), threeStars: outcomes.filter(n => n >= config.stars[2]).length };
 }

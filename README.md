@@ -12,6 +12,13 @@ npm run dev
 
 打开 http://127.0.0.1:5173 。请通过 HTTP 访问，不要直接双击 HTML。
 
+界面右上角可切换 **简体中文 / English**，选择会保存在本机浏览器。
+也可用 `?lang=en` 直接指定语言（不写入设置，便于分享链接）。
+
+> 注意：开发服务器只服务白名单内的后缀，并为每种后缀返回正确的 MIME。
+> 新增资源类型（图片 / 音频 / glTF 模型）时必须同时加进 `scripts/serve.mjs` 的 `types`，
+> 否则浏览器会拒绝执行或渲染 —— ES 模块尤其严格。
+
 ## 玩法与 v0.2 更新
 
 | 游戏 | 内容 | 操作与规则 |
@@ -25,6 +32,7 @@ npm run dev
 - 成长：逐关解锁、每关三星、最高分、共 45 星；本机浏览器保存，旧版通关记录自动迁移。
 - 辅助：拉针安全提示、螺丝解法搜索提示、每关一次撤销（允许从槽满失败中恢复）。辅助操作会影响星级，不影响解锁。
 - 触屏与键盘均可操作，切后台自动暂停冲关；关闭弹窗后停止游戏循环。
+- 语言：界面文案与游戏内提示均走文案字典，支持中英切换；新增语言只需加一个文案文件，不用改任何界面代码。
 
 ## 数值规则
 
@@ -50,7 +58,7 @@ npm run balance
 npm run build
 ```
 
-测试涵盖全部冲关路线与星级门槛、918 种拉针顺序、全部螺丝棋盘的可解性、三孔片满槽释放、失败后撤销、提示解法与无效操作。`balance` 输出可审查的数值报告。
+测试还覆盖首页懒加载、卡片翻译、主按钮、螺丝撤销后的存档、模板输入与监听清理，以及加载中关闭或切换游戏。玩法测试涵盖全部冲关路线与星级门槛、918 种拉针顺序、全部螺丝棋盘的可解性、三孔片满槽释放、失败后撤销、提示解法与无效操作。`balance` 输出可审查的数值报告。
 
 `dist/` 可部署到静态托管服务，资源使用相对路径，兼容 GitHub Pages 项目子路径。仓库尚未自动启用网站部署。
 
@@ -58,10 +66,21 @@ npm run build
 
 - `index.html` / `styles.css`：响应式合集、关卡选择、计分与辅助操作界面。
 - `app.mjs`：游戏循环、交互、合成音效与本机进度。
-- `engine.mjs`：游戏规则、关卡数值、路线分析与螺丝解法搜索。
-- `art.mjs`：冲关 Canvas 渲染。
-- `boards.mjs`：神庙与工坊 SVG 渲染及交互命中区域。
-- `tests/games.test.mjs`：规则与数值测试。
+- `games/`：每个游戏一个目录（manifest / engine / render / levels / assets），只依赖契约。
+  - `games/runner/` 已完成迁移；`games/pins/` 与 `games/screws/` 的 manifest 已就位，引擎待 P4 搬运。
+- `engine.mjs`：**过渡文件**，目前只剩 pins 与 screws 的规则层（P4 会拆分并删除）。
+- `boards.mjs`：神庙与工坊 SVG 渲染及交互命中区域（P4 会拆到各游戏目录）。
+- `src/core/registry.js`：游戏注册表（manifest 校验、id 冲突检测、坏模块隔离）。
+- `src/core/lifecycle.js`：游戏会话（开局/推进/暂停/结算），纯逻辑无 DOM。
+- `src/ui/scene/primitives.js`：Canvas 与 SVG 共享的绘制原语。
+- `tests/games.test.mjs`：规则与数值测试（224 条冲关路线、918 种拉针顺序、6 个螺丝棋盘）。
+- `tests/dictionary.test.mjs`：命名与字典约定的强制校验（键集一致、无硬编码文案、依赖边界、渲染层可加载）。
 - `scripts/`：本地服务器、构建与平衡报告。
+- `src/core/`：契约、枚举字典、i18n、多人契约、共享入口 `host-surface.js`。
+- `src/locales/`：各语言文案。新增语言只需加文件 + 在 `locales.js` / `locales/index.js` 各注册一行。
+- `src/core/multiplayer.js`：多人（同局多人）**契约预留** —— 玩家位、动作补丁、传输端口与接入路线。当前未实现任何适配器。
+- `games/`：每个游戏一个目录，只依赖契约；`_template/` 是可直接改名的脚手架。
+- [CONVENTIONS.md](CONVENTIONS.md)：**项目约定总表**（铁律、命名、字典、数据不变量、检查清单）—— 贡献前先读这份。
+- `docs/`：[决策记录](docs/DECISIONS.md) · [架构方案](docs/ARCHITECTURE.md) · [命名与字典约定](docs/NAMING-CONVENTIONS.md) · [规模化与协作](docs/SCALING-AND-CONTRIBUTING.md) · [迁移映射](docs/MIGRATION-MAP.md)
 
 目前使用确定性的玩法模型：冲关按兵力结算、拉针按机关状态推进、螺丝按几何遮挡判断。没有引入刚体或流体物理引擎。

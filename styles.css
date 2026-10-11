@@ -24,3 +24,25 @@ dialog{width:min(570px,calc(100% - 24px));padding:22px 24px;max-height:95dvh;scr
 /* Invisible hit regions remain large enough for touch without enlarging the artwork. */
 .temple-pin{height:44px}.temple-pin b{top:2px}
 @media(max-width:650px){.temple-pin b{top:4px}.screw-target{width:44px;height:44px}}
+
+/* ---------------------------------------------------------------------------
+ * 语言选择器与顶栏右侧容器
+ * ---------------------------------------------------------------------------
+ * 追加在文件末尾：原文件是压缩写法，追加可避免误伤既有规则。
+ * 使用既有设计令牌（--ink/--line/--muted/--orange），不引入新颜色。
+ * ------------------------------------------------------------------------- */
+.topbar-right{display:flex;align-items:center;gap:12px}
+.lang-picker{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:24px;padding:7px 12px;color:var(--ink);font-size:11px;transition:border-color .18s ease,color .18s ease}
+.lang-picker:hover{border-color:var(--ink)}
+.lang-picker:focus-within{border-color:var(--orange)}
+.lang-picker .lang-icon{font-size:10px;color:var(--muted);line-height:1}
+.lang-picker select{appearance:none;background:transparent;border:0;color:inherit;font:inherit;padding:0 2px;cursor:pointer;max-width:9em}
+.lang-picker select:focus{outline:none}
+/* 尊重系统的减少动效偏好 */
+@media (prefers-reduced-motion:reduce){.lang-picker{transition:none}}
+
+/* Static home art keeps game modules lazy. */
+.hero-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.card-preview{display:block;width:100%;height:100%;object-fit:cover}.card-art{background:var(--accent,#234f5d)}
+/* Translation wrappers inherit text sizing; only icon spans have fixed widths. */
+.nav-item>span[data-i18n]{width:auto;flex:1;min-width:0;font-size:inherit;white-space:nowrap}.eyebrow>span[data-i18n]{width:auto;height:auto;border-radius:0;background:none}.section-heading h2>span[data-i18n]{font-size:inherit;font-weight:inherit;letter-spacing:inherit;margin:0;vertical-align:baseline;color:inherit}
+@media(max-width:900px){.nav-item>span[data-i18n]{display:none}}

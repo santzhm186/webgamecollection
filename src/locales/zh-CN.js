@@ -1,0 +1,251 @@
+/**
+ * 简体中文文案（默认语言，必须是最完整的一份）。
+ * ============================================================================
+ * 命名约定（详见 docs/NAMING-CONVENTIONS.md）：
+ *
+ *   键路径 = <area>.<subject>[.<detail>]，全小写 + 点分层级，最多四段。
+ *
+ *   area 只能取以下之一：
+ *     app      全站标识、页脚、版本号
+ *     nav      侧栏导航与分类
+ *     home     首页英雄区、搜索、底部条
+ *     dialog   游戏容器（标题栏、关卡选择、工具栏、结果面板、按钮）
+ *     status   游戏状态栏与提示（跨游戏通用）
+ *     common   跨游戏通用短词（星级、关卡、分数等）
+ *     game     游戏专属文案，第三段必须是 manifest.id
+ *
+ *   规则（改文案时不能违反）：
+ *     R1 面向玩家的字符串**必须**有键，禁止在 .js/.html 里直接写中文/英文字面量。
+ *     R2 游戏专属文案一律放 game.<id>.*，宿主区域禁止出现某个游戏的专有名词。
+ *     R3 数值与变量用 {name} 占位，由 t(key, params) 插值；禁止字符串拼接。
+ *     R4 不写单位到句子里就够（"3 关"→ key `common.levels` 为 "{n} 关"），
+ *        便于其他语言调整语序。
+ *     R5 新增键必须同时补全**所有** locale，tests/i18n.test.mjs 会强制校验。
+ *     R6 简称/缩写（如 "EN"）放 locales.js，不进本文件。
+ */
+
+export const zhCN = {
+  /* ---- 全站 ---- */
+  'app.brandLabel': '玩得到首页',
+  'app.name': '玩得到',
+  'app.tagline': 'PLAY THE AD.',
+  'app.description': '把广告里让你手痒的小游戏，变成打开就能玩的网页。加减门冲关、拉针救人、拧螺丝，免费畅玩。',
+  'app.footerCopyright': '© {year}',
+  'app.footerMotto': 'MADE FOR THE “LET ME TRY” MOMENT.',
+  'app.feedback': '想玩什么？告诉我们 ↗',
+  'app.versionBadge': '独立开发 · v{version}',
+  'app.noDownload': '无需下载，即开即玩',
+  'app.github': 'GitHub',
+
+  /* ---- 侧栏 ---- */
+  'nav.label': '你的小游戏街机',
+  'nav.language': '界面语言',
+  'nav.all': '全部游戏',
+  'nav.action': '动作冲关',
+  'nav.puzzle': '脑力解谜',
+  'nav.casual': '休闲解压',
+  'nav.sloganTitle': '眼睛会了，手试试。',
+  'nav.sloganBody': '那些刷到过的小游戏，\n这次真的能玩。',
+
+  /* ---- 首页 ---- */
+  'home.topbarTitle': '小乐趣，大满足。',
+  'home.eyebrow': '广告里的游戏，这里有真的',
+  'home.title1': '别光看。',
+  'home.title2': '这次，',
+  'home.title3': '你来玩。',
+  'home.subtitle': '拉开那根针，选对那扇门，拧下最后一颗螺丝。\n熟悉的玩法，打开就能玩。',
+  'home.cta': '先来一局',
+  'home.zeroAds': '0 广告',
+  'home.zeroDownload': '0 下载',
+  'home.truePlay': '100% 真能玩',
+  'home.pickOfDay': '本日推荐',
+  'home.heroCaption1': '选对一扇门。',
+  'home.heroCaption2': '带着你的队伍，冲！',
+  'home.heroNote': '+14 还是 ×2？',
+  'home.collectionEyebrow': 'PICK YOUR NEXT OBSESSION',
+  'home.collectionTitle': '挑一个，玩真的。',
+  'home.searchPlaceholder': '找个小游戏…',
+  'home.searchLabel': '搜索游戏',
+  'home.empty': '还没有这个游戏，试试「拉针」或「螺丝」。',
+  'home.stripTitle': '你的「我上我也行」，终于有地方验证了。',
+  'home.stripBody': '每个游戏都能直接玩。进度只保存在当前浏览器。',
+  'home.openGame': '开玩',
+  'home.cardArtLabel': '开始{title}',
+
+  /* ---- 游戏容器 ---- */
+  'dialog.selectLevel': '选择关卡',
+  'dialog.restart': '↻ 重新开始',
+  'dialog.hint': '✦ 给点提示',
+  'dialog.undo': '↶ 撤销一步',
+  'dialog.close': '关闭游戏',
+  'dialog.soundOn': '♪ 音效开',
+  'dialog.soundOff': '♪ 音效关',
+  'dialog.assistQuote': '三星：独立完成，冲关达到三星兵力',
+  'dialog.start': '开始游戏',
+  'dialog.startRunner': '开始冲关',
+  'dialog.again': '再来一局',
+  'dialog.nextLevel': '下一关',
+  'dialog.pause': '暂停 Ⅱ',
+  'dialog.resume': '继续 ▶',
+  'dialog.pauseLabel': '暂停游戏',
+  'dialog.resumeLabel': '继续游戏',
+  'dialog.levelLabel': '{title} · {difficulty}',
+  'dialog.levelChipLabel': '第 {n} 关 {title}',
+  'dialog.levelLocked': '，未解锁',
+  'dialog.levelPending': '待解锁',
+  'dialog.levelChallenge': '挑战',
+  'dialog.starsLabel': '{n} 星',
+  'dialog.assistGoalRunner': '三星：至少 {n} 人抵达要塞',
+  'dialog.assistGoalPins': '三星：不使用提示。提示不超过 2 次为两星。',
+  'dialog.assistGoalScrews': '三星：不用提示或撤销。合计不超过 2 次为两星。',
+
+  /* ---- 首页进度与结果 ---- */
+  'progress.stars': '{n} / {total}',
+  'progress.completed': '已通关 {n} / {total}',
+  'progress.levels': '{n} / {total} 关',
+  'result.runnerDetail': '抵达 {arrived} 人 · 峰值 {peak} 人',
+  'result.moves': '{n} 次操作',
+  'result.hints': '{n} 次提示',
+  'result.undos': '{n} 次撤销',
+  'result.score': '分',
+
+  /* ---- 状态栏 ---- */
+  'status.paused': '已暂停。点击继续或按空格恢复。',
+  'status.languageChanged': '语言已切换为 {label}。',
+  'status.tryAnotherRoute': '再试一次，换个思路。',
+  'status.gameUnavailable': '这个游戏暂时无法加载。其他游戏仍可正常游玩。',
+  'status.loadingGame': '正在加载游戏…',
+
+  /* ---- 通用短词 ---- */
+  'common.levels': '{n} 关',
+  'common.stars': '★',
+  'common.difficultyEntry': '入门',
+  'common.difficultyAdvanced': '进阶',
+  'common.difficultyChallenge': '挑战',
+  'common.level': '第 {n} 关',
+  'common.left': '左',
+  'common.right': '右',
+
+  /* ---- 游戏 01 runner ---- */
+  'game.runner.artLabel': '开始加减门冲关',
+  'game.runner.category': '01 / 动作',
+  'game.runner.title': '加减门冲关',
+  'game.runner.tagline': '数学不难，难的是忍住不选错。',
+  'game.runner.instruction': '← → / A D 选门，也可点击或拖动赛道。每波守卫消耗兵力，空格暂停。',
+  'game.runner.cardMeta': '← → 移动 · 3 关 · 约 30 秒 / 局',
+  'game.runner.canvasLabel': '冲关赛道，使用左右方向键选择增益门',
+  'game.runner.leftGate': '← 左门',
+  'game.runner.rightGate': '右门 →',
+  'game.runner.intro': '带至少 {boss} 人抵达要塞。蓝色门增加人数，绿色门翻倍，每波守卫会消耗兵力。',
+  'game.runner.gateResult': '{gate} → {gained} 人，击退 {loss} 名守卫，剩余 {army} 人。',
+  'game.runner.exhausted': '队伍耗尽了。观察下一波守卫人数，再选择增益门。',
+  'game.runner.bossStart': '要塞交战中：{army} 人对抗 {boss} 名守卫。',
+  'game.runner.win': '要塞突破！抵达 {arrived} 人，战后剩余 {left} 人，获得 {stars} 星。',
+  'game.runner.short': '距离突破还差 {gap} 人。试着比较「加人数」与「翻倍」的收益。',
+  'game.runner.hudArmy': '兵力',
+  'game.runner.hudBoss': '要塞守卫',
+  'game.runner.hudNext': '下一波',
+  'game.runner.boss': 'BOSS',
+  'game.runner.canvasWin': '要塞已突破',
+  'game.runner.canvasLose': '队伍需要增援',
+  'game.runner.canvasRetry': '再试一条路线',
+  'game.runner.canvasHint': '每一次选择，都会改变结局',
+  'game.runner.gateMultiply': '翻倍',
+  'game.runner.gateRecruit': '加人',
+  'game.runner.canvasGuards': '守卫 {n}',
+  'game.runner.canvasLoss': '−{n} 守卫',
+  'game.runner.canvasSquad': '队伍',
+  'game.runner.canvasArmy': '{n} 人',
+  'game.runner.canvasGates': '{done} / {total} 道门',
+  'game.runner.canvasScore': '{score} 分',
+  'game.runner.canvasFinal': '最终防线',
+  'game.runner.level1': '海岸训练营',
+  'game.runner.level2': '峡谷突围',
+  'game.runner.level3': '暮色要塞',
+
+  /* ---- 游戏 02 pins ---- */
+  'game.pins.category': '02 / 解谜',
+  'game.pins.title': '拉针救人',
+  'game.pins.artLabel': '开始拉针救人',
+  'game.pins.tagline': '先拉哪一根？这次自己决定。',
+  'game.pins.instruction': '点击金色拉环。水能冷却岩浆，岩浆能处理蜘蛛；气体需要提前排出。',
+  'game.pins.cardMeta': '点击拔针 · 6 个关卡',
+  'game.pins.intro': '观察水流与机关的连接，清理危险后再放下宝藏。',
+  'game.pins.hint': '提示：现在可以安全操作「{pin}」机关。',
+  'game.pins.vent': '气体散去了。现在引水不会引发爆燃。',
+  'game.pins.spiderOk': '蜘蛛落入热岩浆，危险解除。',
+  'game.pins.spiderFail': '岩浆已经冷却，蜘蛛沿通道逃向了探险家。先用热岩浆处理蜘蛛。',
+  'game.pins.waterOk': '水流让岩浆凝固成岩石。现在可以安全排空。',
+  'game.pins.waterFail': '水蒸气引燃了可燃气体！先从顶部排气口排出气体。',
+  'game.pins.drainOk': '岩石滑入废料槽，通道安全了。',
+  'game.pins.drainOkBridge': '岩石已排出，通道安全了。落下石桥，就能连接宝藏与出口。',
+  'game.pins.drainFailHot': '热岩浆冲入下方通道！先引水冷却。',
+  'game.pins.drainFailSpider': '蜘蛛还在密室里，随着通道打开跑了出来。',
+  'game.pins.bridgeOk': '石桥落下，宝藏与出口连通了。',
+  'game.pins.bridgeFail': '石桥撞上了未清理的岩浆槽，通道坍塌了！先排空槽内岩石。',
+  'game.pins.treasureDanger': '危险还没处理完，宝藏掉入了危险通道。',
+  'game.pins.treasureNoBridge': '石桥还没放下，宝藏掉进了沟壑！',
+  'game.pins.win': '探险家安全拿到了宝藏！{moves} 步完成，获得 {stars} 星。',
+  'game.pins.hudPins': '机关',
+  'game.pins.hudHints': '提示',
+  'game.pins.hudBest': '本关最佳',
+  'game.pins.hudNone': '—',
+  'game.pins.sceneFail': '机关失误',
+  'game.pins.sceneFailHint': '观察水流方向，再试一次',
+  'game.pins.sceneWin': '宝藏到手！',
+  'game.pins.sceneWinHint': '安全抵达 · 救援成功',
+  'game.pins.pinWater': '引水',
+  'game.pins.pinDrain': '排空',
+  'game.pins.pinTreasure': '宝藏',
+  'game.pins.pinSpider': '蜘蛛',
+  'game.pins.pinVent': '排气',
+  'game.pins.pinBridge': '落桥',
+  'game.pins.canvasWater': '水流',
+  'game.pins.canvasLava': '岩浆',
+  'game.pins.canvasStone': '岩石',
+  'game.pins.canvasTreasure': '宝藏',
+  'game.pins.canvasEmpty': '已清空',
+  'game.pins.level1': '水与火',
+  'game.pins.level2': '不速之客',
+  'game.pins.level3': '蒸汽密室',
+  'game.pins.level4': '双重危机',
+  'game.pins.level5': '断桥寻宝',
+  'game.pins.level6': '神庙逃生',
+
+  /* ---- 游戏 03 screws ---- */
+  'game.screws.category': '03 / 休闲',
+  'game.screws.title': '拧螺丝',
+  'game.screws.artLabel': '开始拧螺丝',
+  'game.screws.tagline': '一颗一颗，拆掉所有小烦恼。',
+  'game.screws.instruction': '拆完一整片金属才归还槽位。三孔金属片要拆 3 颗，每关可撤销一次。',
+  'game.screws.cardMeta': '点击拆卸 · 6 个关卡',
+  'game.screws.intro': '暂存槽有 {capacity} 格。拆完一整片金属，其螺丝会自动收走。每关可撤销一次。',
+  'game.screws.fallen': '第 {n} 片金属脱落，归还 {slots} 个暂存位置。',
+  'game.screws.remaining': '这片还剩 {n} 颗螺丝。槽位：{used} / {capacity}。',
+  'game.screws.win': '全部拆完！{moves} 颗螺丝，获得 {stars} 星。',
+  'game.screws.fullCanUndo': '暂存槽已满。可以撤销一步，调整拆卸顺序。',
+  'game.screws.fullNoUndo': '暂存槽已满，撤销机会已用完。重试时优先拆完同一片金属。',
+  'game.screws.undone': '已撤销上一步。现在可以选择另一颗螺丝。',
+  'game.screws.hint': '提示：先拆第 {n} 片上高亮的螺丝。',
+  'game.screws.noSolution': '当前槽位无法完成拆卸，试试撤销一步。',
+  'game.screws.hudPlates': '金属片',
+  'game.screws.hudSlots': '暂存槽',
+  'game.screws.hudUndo': '剩余撤销',
+  'game.screws.sceneFail': '暂存槽已满',
+  'game.screws.sceneFailHint': '撤销一步，或者重新挑战',
+  'game.screws.sceneWin': '全部拆完',
+  'game.screws.endLeft': '左侧',
+  'game.screws.endRight': '右侧',
+  'game.screws.endCenter': '中央',
+  'game.screws.plateLabel': '{n} 号金属片{end}螺丝',
+  'game.screws.canvasStorage': '暂存',
+  'game.screws.canvasMotto': '一片一片，拆干净。',
+  'game.screws.level1': '热身拆卸',
+  'game.screws.level2': '交错金属',
+  'game.screws.level3': '第三颗螺丝',
+  'game.screws.level4': '空间紧张',
+  'game.screws.level5': '层层解锁',
+  'game.screws.level6': '精密拆解',
+};
+
+export default zhCN;
