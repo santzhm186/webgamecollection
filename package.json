@@ -5,6 +5,7 @@
   "type": "module",
   "description": "广告小游戏的可玩网页版合集",
   "scripts": {
+    "postinstall": "esbuild node_modules/three/build/three.module.js --bundle --format=esm --outfile=public/lib/three.mjs --minify",
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs games/_template/*.test.mjs",
     "build": "node scripts/build.mjs",
@@ -12,5 +13,11 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

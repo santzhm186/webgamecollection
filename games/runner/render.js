@@ -19,6 +19,7 @@
  */
 import { t, starRow } from '../../src/core/host-surface.js';
 import { rounded, label, polygon, verticalGradient } from '../../src/ui/scene/primitives.js';
+import { init3DModels, getSoldierSprite } from '../../src/ui/scene/three-models.js';
 import RUNNER_LEVELS from './levels.js';
 
 export const LOGICAL_WIDTH = 480;
@@ -31,6 +32,10 @@ const PALETTE = [
   { sky: ['#282b51', '#4d4260'], ground: '#4a4460' },
 ];
 
+// 全局缓存 3D Sprite
+let playerSprite = null;
+let enemySprite = null;
+
 /**
  * 一个小兵。索引参与相位计算，使整队不同步摆动（避免机械感）。
  * @param {CanvasRenderingContext2D} ctx
@@ -42,19 +47,27 @@ function soldier(ctx, x, y, size, enemy, time, index) {
   ctx.fillStyle = '#07132266';
   ctx.beginPath(); ctx.ellipse(1, 8, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
   const swing = Math.sin(time * 11 + index) * 2;
-  ctx.strokeStyle = enemy ? '#8d3a4c' : '#174b84'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-3, 3); ctx.lineTo(-4 + swing, 8);
-  ctx.moveTo(3, 3); ctx.lineTo(4 - swing, 8);
-  ctx.stroke();
-  const body = ctx.createLinearGradient(-5, -6, 5, 6);
-  body.addColorStop(0, enemy ? '#ff9d96' : '#76e3ff');
-  body.addColorStop(1, enemy ? '#d54f61' : '#2e8bdf');
-  rounded(ctx, -5, -6, 10, 12, 4, body);
-  rounded(ctx, -5.5, -15, 11, 10, 4, enemy ? '#ef6973' : '#54bcf2', enemy ? '#9e3d51' : '#2977ae');
-  rounded(ctx, -4, -11, 8, 3, 1, '#1b334b');
-  ctx.strokeStyle = '#ccecff'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(5, -3); ctx.lineTo(7, -12); ctx.stroke();
+
+  const sprite = enemy ? enemySprite : playerSprite;
+  if (sprite) {
+    // 渲染 3D 贴图
+    ctx.rotate(swing * 0.05); // 根据摆动稍微旋转
+    ctx.drawImage(sprite, -15, -25, 30, 30);
+  } else {
+    ctx.strokeStyle = enemy ? '#8d3a4c' : '#174b84'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-3, 3); ctx.lineTo(-4 + swing, 8);
+    ctx.moveTo(3, 3); ctx.lineTo(4 - swing, 8);
+    ctx.stroke();
+    const body = ctx.createLinearGradient(-5, -6, 5, 6);
+    body.addColorStop(0, enemy ? '#ff9d96' : '#76e3ff');
+    body.addColorStop(1, enemy ? '#d54f61' : '#2e8bdf');
+    rounded(ctx, -5, -6, 10, 12, 4, body);
+    rounded(ctx, -5.5, -15, 11, 10, 4, enemy ? '#ef6973' : '#54bcf2', enemy ? '#9e3d51' : '#2977ae');
+    rounded(ctx, -4, -11, 8, 3, 1, '#1b334b');
+    ctx.strokeStyle = '#ccecff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(5, -3); ctx.lineTo(7, -12); ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -306,6 +319,14 @@ export default function createRenderer() {
       this.destroy();
       host = nextHost;
       const translate = typeof ctx.t === 'function' ? ctx.t : t;
+
+      // 在挂载时尝试初始化 3D 渲染降级模块
+      init3DModels().then(supported => {
+        if (supported) {
+          getSoldierSprite('#1fc8eb').then(img => { playerSprite = img; }).catch(e => console.warn(e));
+          getSoldierSprite('#ea4b5c').then(img => { enemySprite = img; }).catch(e => console.warn(e));
+        }
+      }).catch(e => console.warn(e));
       board = document.createElement('div');
       board.className = 'runner-board';
       canvas = document.createElement('canvas');
