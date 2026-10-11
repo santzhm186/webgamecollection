@@ -317,7 +317,8 @@ test('T5 games/** 不得 import 宿主内部模块，只能走 host-surface.js',
         const resolved = relative(root, join(root, dirname(file), spec)).replace(/\\/g, '/');
         const allowed = resolved.startsWith('games/')
           || resolved === 'src/core/host-surface.js'          // 宿主开放的能力门面
-          || resolved === 'src/ui/scene/primitives.js';        // 共享 Canvas 绘制原语（游戏渲染器必需）
+          || resolved === 'src/ui/scene/primitives.js'        // 共享 Canvas 绘制原语（游戏渲染器必需）
+          || resolved === 'src/ui/scene/three-models.js';     // 共享 3D 渲染降级模块
         if (!allowed) violations.push(`${file} → ${spec}  (解析为 ${resolved})`);
         continue;
       }

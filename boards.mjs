@@ -4,6 +4,22 @@
 import { PIN_POINTS, pinLabel } from './games/pins/dictionary.js';
 import { screwPosition, screwEndLabel } from './games/screws/dictionary.js';
 import { t } from './src/core/i18n.js';
+import { init3DModels, getSoldierSprite, getCoinSprite } from './src/ui/scene/three-models.js';
+
+let pinExplorerSrc = null;
+let pinCoinSrc = null;
+
+// 在加载此模块时，异步初始化 3D 并在就绪后填充 sprite 的 dataURL
+init3DModels().then(supported => {
+  if (supported) {
+    getSoldierSprite('#daac64').then(img => {
+      if (img) pinExplorerSrc = img.src;
+    }).catch(e => console.warn(e));
+    getCoinSprite().then(img => {
+      if (img) pinCoinSrc = img.src;
+    }).catch(e => console.warn(e));
+  }
+}).catch(e => console.warn(e));
 
 /**
  * 兼容再导出：PIN_POINTS 已移到 games/pins/dictionary.js（游戏私有布局）。
@@ -103,6 +119,10 @@ function defs(prefix) {
   </defs>`;
 }
 function explorer(x, y, won, lost) {
+  if (pinExplorerSrc) {
+    // 3D 降级方案
+    return `<g class="explorer ${won ? 'explorer-happy' : ''}" transform="translate(${x} ${y})"><image x="-32" y="-45" width="64" height="64" href="${pinExplorerSrc}"/></g>`;
+  }
   return `<g class="explorer ${won ? 'explorer-happy' : ''}" transform="translate(${x} ${y})">
     <ellipse cy="25" rx="19" ry="5" fill="#051e2455"/>
     <path d="M-7 11l-4 14m18-14 4 14" stroke="#324f57" stroke-width="7" stroke-linecap="round"/>
@@ -115,6 +135,10 @@ function explorer(x, y, won, lost) {
   </g>`;
 }
 function gem(x, y, prefix, size = 1) {
+  if (pinCoinSrc) {
+    // 3D 降级方案
+    return `<g transform="translate(${x} ${y}) scale(${size})"><image x="-32" y="-32" width="64" height="64" href="${pinCoinSrc}"/></g>`;
+  }
   return `<g transform="translate(${x} ${y}) scale(${size})"><path d="M-10-5-5-12H5L10-5 0 8z" fill="url(#${prefix}-gold)" stroke="#ffec9699"/><path d="M-10-5H10M-5-12 0 8 5-12M0-12v7" fill="none" stroke="#fff2ab99" stroke-width=".8"/></g>`;
 }
 function foliage() {
