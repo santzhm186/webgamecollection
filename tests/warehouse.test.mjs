@@ -257,3 +257,10 @@ test('warehouse 3D: explicit art overrides take priority, failures keep working 
   assert.doesNotMatch(host.innerHTML, /<image/);
   renderer.destroy();
 });
+
+test('仓库：提示在移动与撤销后与当前最短路径一致', () => {
+  const game = new Warehouse(1); game.start();
+  const first = game.hint(); game.move(first);
+  assert.equal(game.hint(), solveBoard(game.board, game.player, game.boxes)[0]);
+  game.undo(); assert.equal(game.hint(), first);
+});

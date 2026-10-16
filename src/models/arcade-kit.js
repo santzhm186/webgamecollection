@@ -103,3 +103,43 @@ export const MODELS = {
     box('emblem',[.2,.2,.03],'cream',[0,.4,.067],[0,0,Math.PI/4]),
   ]},
 };
+
+// Modular expansion: shared palette, metre grid, grounded pivot, named submeshes.
+Object.assign(MODELS, {
+  'bridge-tile': {name:'模块桥面 / Bridge tile',category:'environment',reuse:['pins','runner','warehouse'],nodes:[
+    box('deck',[1,.14,1],'steel',[0,.07,0]),
+    ...[-1,1].flatMap(s=>[box(`rail-${s}`,[.06,.08,1],'amber',[s*.46,.4,0]),...[-1,1].map(z=>box(`post-${s}-${z}`,[.06,.34,.06],'ink',[s*.46,.24,z*.43]))]),
+  ]},
+  'corner-wall': {name:'转角墙 / Corner wall',category:'environment',reuse:['warehouse','pins'],nodes:[
+    box('base',[1,.12,1],'dark',[0,.06,0]),box('back',[1,.8,.16],'ink',[0,.52,-.42]),box('side',[.16,.8,.84],'ink',[-.42,.52,.08]),box('trim',[1,.06,.18],'mint',[0,.95,-.42]),
+  ]},
+  'hazard-tile': {name:'危险地块 / Hazard tile',category:'environment',reuse:['runner','warehouse','shooter'],nodes:[
+    box('base',[1,.12,1],'ink',[0,.06,0]),
+    ...[-2,-1,0,1,2].map(i=>box(`stripe-${i}`,[.12,.015,.88],i%2?'dark':'amber',[i*.18,.128,0])),
+  ]},
+  'shield-cell': {name:'护盾电池 / Shield cell',category:'prop',reuse:['shooter','runner'],nodes:[
+    cyl('base',.28,.3,.12,'ink',[0,.06,0]),cyl('cell',.22,.22,.6,'blue',[0,.42,0]),cyl('cap',.28,.28,.1,'cream',[0,.77,0]),
+    ...[-1,1].map(s=>box(`light-${s}`,[.05,.42,.03],'glow',[s*.11,.43,.21])),
+  ]},
+  'repair-kit': {name:'维修补给 / Repair kit',category:'prop',reuse:['shooter','warehouse','runner'],nodes:[
+    box('case',[.72,.48,.4],'mint',[0,.3,0]),box('foot',[.76,.06,.44],'ink',[0,.03,0]),box('handle',[.3,.09,.12],'ink',[0,.59,0]),box('badge-x',[.28,.08,.03],'cream',[0,.31,.215]),box('badge-y',[.08,.28,.03],'cream',[0,.31,.215]),
+  ]},
+  'sentry-turret': {name:'模块炮塔 / Sentry turret',category:'mechanical',reuse:['shooter','runner','warehouse'],nodes:[
+    cyl('base',.36,.42,.18,'ink',[0,.09,0]),cyl('pivot',.17,.17,.26,'steel',[0,.31,0]),box('head',[.54,.3,.5],'blue',[0,.57,0]),cyl('barrel',.085,.085,.58,'dark',[0,.58,.46],[Math.PI/2,0,0]),box('sight',[.14,.06,.15],'glow',[0,.75,.1]),
+  ]},
+  'pin-handle': {name:'可抽拉插销 / Pull pin',category:'mechanical',reuse:['pins','screws'],nodes:[
+    cyl('shaft',.055,.055,1.1,'steel',[0,.055,0],[0,0,Math.PI/2]),ring('grip',.17,.045,'amber',[.7,.215,0],[0,0,0]),box('stop',[.08,.16,.16],'ink',[.54,.08,0]),
+  ]},
+  'valve-wheel': {name:'机关阀门 / Valve wheel',category:'mechanical',reuse:['pins','water-sort','screws'],nodes:[
+    cyl('base',.18,.22,.12,'ink',[0,.06,0]),cyl('stem',.065,.065,.28,'steel',[0,.26,0]),ring('wheel',.32,.045,'coral',[0,.44,0]),box('spoke-x',[.62,.045,.055],'coral',[0,.44,0]),box('spoke-z',[.055,.045,.62],'coral',[0,.44,0]),
+  ]},
+  'tube-rack': {name:'模块试管架 / Tube rack',category:'prop',reuse:['water-sort','warehouse'],nodes:[
+    box('base',[1.6,.1,.6],'ink',[0,.05,0]),...[-1,1].map(s=>box(`support-${s}`,[.08,.65,.54],'mint',[s*.75,.425,0])),
+    ...[-1,1].map(s=>box(`rail-${s}`,[1.6,.08,.08],'cream',[0,.73,s*.24])),
+    ...[-.5,0,.5].map((x,i)=>ring(`socket-${i}`,.19,.025,'steel',[x,.73,0])),
+  ]},
+  'star-token': {name:'通关星章 / Star token',category:'prop',reuse:['runner','pins','screws','water-sort','warehouse','shooter'],nodes:[
+    cyl('plinth',.28,.32,.1,'ink',[0,.05,0]),sphere('core',.18,'amber',[0,.48,0]),
+    ...[0,1,2,3,4].map(i=>{const a=i*Math.PI*2/5;return box(`ray-${i}`,[.12,.32,.1],'amber',[Math.sin(a)*.2,.48+Math.cos(a)*.2,0],[0,0,-a]);}),
+  ]},
+});

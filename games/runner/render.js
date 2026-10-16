@@ -293,6 +293,7 @@ export default function createRenderer() {
   let canvas = null;
   /** @type {HTMLDivElement|null} */
   let host = null;
+  let translate = t;
   let board = null;
   let leftButton = null;
   let rightButton = null;
@@ -332,7 +333,7 @@ export default function createRenderer() {
     mount(nextHost, engine, ctx = {}) {
       this.destroy();
       host = nextHost;
-      const translate = typeof ctx.t === 'function' ? ctx.t : t;
+      translate = typeof ctx.t === 'function' ? ctx.t : t;
 
       const token = ++generation;
       Promise.all([getSoldierSprite('#58c9ec'), getSoldierSprite('#f58a79')]).then(([player, enemy]) => {
@@ -413,6 +414,10 @@ export default function createRenderer() {
       rightButton.disabled = !canChoose;
       leftButton.setAttribute('aria-pressed', String(engine.side === 0));
       rightButton.setAttribute('aria-pressed', String(engine.side === 1));
+      leftButton.textContent = translate('game.runner.leftGate');
+      rightButton.textContent = translate('game.runner.rightGate');
+      leftButton.setAttribute('aria-label', translate('game.runner.leftGate'));
+      rightButton.setAttribute('aria-label', translate('game.runner.rightGate'));
       pauseButton.disabled = engine.status !== 'playing';
     },
 

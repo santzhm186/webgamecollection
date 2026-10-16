@@ -5,7 +5,7 @@
 ## 使用与生成
 
 - [可交互预览](../../public/assets/models/gallery.html)：旋转、缩放、切换模型、分类与逐个下载。需要通过 HTTP 打开。
-- [源数据](arcade-kit.js)：14 个模型的零件、尺寸、变换、材质与复用场景。
+- [源数据](arcade-kit.js)：24 个模型的零件、尺寸、变换、材质与复用场景。
 - [GLB 清单](../../public/assets/models/manifest.json)：文件路径、字节数、三角面数与包围盒。
 - `npm run models`：从同一份源数据重新导出全部 GLB。无需安装额外工具。
 - `npm run build`：把源数据、模型、预览页一起放入 `dist/`。
@@ -39,3 +39,7 @@ const sprite = await getAssetSprite('cargo-bot', undefined, 128, Math.PI / 2);
 | coin 收藏金币 | 拉针宝藏、拾取物 |
 
 这些是静态模块，没有骨骼或碰撞逻辑。螺丝螺纹采用分层圆环；连接板孔位采用深色面与金属环标记，便于轻量渲染。试管为空管，游戏中的液体状态由玩法层独立控制。
+
+## 模块扩展
+
+新增 `bridge-tile` 桥面、`corner-wall` 转角墙、`hazard-tile` 危险地块、`shield-cell` 护盾电池、`repair-kit` 维修补给、`sentry-turret` 炮塔、`pin-handle` 插销、`valve-wheel` 阀门、`tube-rack` 试管架及 `star-token` 星章。各游戏资源清单声明可复用模块；护盾电池已接入射击游戏的补给显示，其余扩展供后续关卡拼装，不改变当前规则。所有零件独立命名，可单独设置变换。

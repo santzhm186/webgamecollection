@@ -51,8 +51,8 @@ function dispose(model) {
   model.children.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose(); });
 }
 
-test('共享3D资产：14份真实GLB头、JSON、索引、PBR及几何与definitions一致', async () => {
-  assert.equal(Object.keys(MODELS).length, 14);
+test('共享3D资产：24份真实GLB头、JSON、索引、PBR及几何与definitions一致', async () => {
+  assert.equal(Object.keys(MODELS).length, 24);
   for (const [id, definition] of Object.entries(MODELS)) {
     const buffer = await readFile(new URL(`../public/assets/models/${id}.glb`, import.meta.url));
     assert.deepEqual(buffer, encodeModel(id), `${id} is stale; run node scripts/build-models.mjs`);
@@ -69,7 +69,7 @@ test('共享3D资产：14份真实GLB头、JSON、索引、PBR及几何与defini
       assert.deepEqual(node.translation, spec.position ?? [0, 0, 0]);
       assert.deepEqual(node.scale, spec.scale ?? [1, 1, 1]);
       const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(...(spec.rotation ?? [0, 0, 0])));
-      assert.deepEqual(node.rotation, quaternion.toArray());
+      assert.deepEqual(node.rotation, quaternion.toArray().map(value => value === 0 ? 0 : value));
       const primitive = gltf.meshes[node.mesh].primitives[0];
       assert.equal(primitive.mode, 4);
       const positions = readAccessor(gltf, binary, primitive.attributes.POSITION);

@@ -654,6 +654,7 @@ dialog.addEventListener('close', () => {
 
 document.addEventListener('keydown', event => {
   if (!dialog.open || !active) return;
+  if (event.target?.closest?.('input, textarea, select, [contenteditable]')) return;
   const engine = active.session.engine;
   // 保留按钮上的 Enter/Space 激活；空格只在场景上用于暂停
   if (event.key === ' ' && event.target.closest('button')) return;
@@ -704,6 +705,7 @@ function onLanguageChanged() {
   $('.helper-tools > span').textContent = assistGoal(active.session.engine);
   startButton.innerHTML = `${t(active.session.status === ENGINE_STATUS.READY ? 'dialog.start' : 'dialog.again')} <span>${active.session.status === ENGINE_STATUS.READY ? '→' : '↻'}</span>`;
   renderPicker(active.manifest, active.level);
+  active.session.renderer.draw(active.session.engine);
   updateStatus(true);
 }
 

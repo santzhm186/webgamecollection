@@ -22,6 +22,7 @@ export default class WarehouseEngine {
     this.score = 0;
     this.direction = 'up';
     this.history = [];
+    this._hintCache = null;
     this.route = [];
     this.deadlocked = false;
     this.hintDirection = null;
@@ -86,7 +87,9 @@ export default class WarehouseEngine {
 
   hint() {
     if (this.status !== 'playing') return null;
-    const path = solveBoard(this.board, this.player, this.boxes);
+    const key = JSON.stringify([this.player, [...this.boxes].sort((a, b) => a - b)]);
+    if (this._hintCache?.key !== key) this._hintCache = { key, path: solveBoard(this.board, this.player, this.boxes) };
+    const path = this._hintCache.path;
     if (!path?.length) {
       this.message = this.t('game.warehouse.noRoute');
       this.hintDirection = null;

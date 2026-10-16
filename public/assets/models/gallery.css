@@ -110,3 +110,9 @@ h2 { margin: 0; font-size: 25px; font-weight: 800; letter-spacing: -.035em; }
   .gallery-footer > span { display: block; margin-top: 10px; }
 }
 @media(prefers-reduced-motion: reduce) { *, *:before, *:after { scroll-behavior: auto !important; transition: none !important; } }
+
+/* Keep the model preview alongside long collections. */
+@media (min-width: 681px) {
+  .asset-list { max-height: 540px; overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; padding: 4px; }
+  .asset-detail { position: sticky; top: 20px; align-self: start; }
+}

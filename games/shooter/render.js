@@ -152,12 +152,12 @@ export default function createRenderer() {
       listen(canvas, 'pointercancel', event => { if (event.pointerId === pointerId) release(); });
       listen(canvas, 'lostpointercapture', event => { if (event.pointerId === pointerId) pointerId = null; });
       board.append(canvas, controls, pause); host.append(board); resize();
-      if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { resize(); this.draw(engine); }); observer.observe(host); }
+      if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { resize(); if (latestEngine) this.draw(latestEngine); }); observer.observe(host); }
       this.draw(engine);
       const requests = [
         ['player', 'scout-bot', '#8fe6e5'], ['enemy', 'enemy-drone', '#df667f'],
         ['boss', 'boss-sentry', '#d7798c'],
-        ...Object.entries(UPGRADE_COLORS).map(([key, color]) => [key, 'upgrade-crate', color]),
+        ...Object.entries(UPGRADE_COLORS).map(([key, color]) => [key, key === 'shield' ? 'shield-cell' : 'upgrade-crate', color]),
       ];
       Promise.allSettled(requests.map(async ([key, id, color]) => [key, await getAssetSprite(id, color)]))
         .then(results => {

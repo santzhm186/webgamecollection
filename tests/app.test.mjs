@@ -284,3 +284,35 @@ test('宿主：彩液分装反复撤销由引擎决定，三星结算解锁下�
   assert.deepEqual(saved.runner[0], { stars: 2, score: 900 });
   assert.equal(saved.runner.length, 5);
 });
+
+test('宿主：切换语言重绘当前场景且保留局内状态', async () => {
+  for (const id of ['runner', 'pins', 'screws', 'water-sort', 'warehouse']) {
+    i18n.setLocale('zh-CN', { persist: false });
+    const host = await boot();
+    const session = await host.open(id);
+    if (session.status === 'ready') host.document.querySelector('#start-game').click();
+    const engine = session.engine;
+    let draws = 0;
+    const draw = session.renderer.draw.bind(session.renderer);
+    session.renderer.draw = (...args) => { draws++; return draw(...args); };
+    const select = host.document.querySelector('#language-select');
+    select.value = 'en'; select.dispatchEvent({ type: 'change', bubbles: true });
+    assert.equal(draws, 1, `${id} ${JSON.stringify(host.errors)} locale=${i18n.getLocale()}`);
+    assert.equal(session.engine, engine);
+    assert.equal(session.status, 'playing');
+    session.destroy();
+  }
+});
+
+test('宿主：输入控件方向键不移动玩家，场景快捷键仍有效', async () => {
+  const host = await boot();
+  const session = await host.open('runner');
+  host.document.querySelector('#start-game').click();
+  let calls = 0;
+  session.engine.chooseSide = () => { calls++; return true; };
+  const select = host.document.querySelector('#language-select');
+  select.dispatchEvent({ type: 'keydown', key: 'ArrowRight', bubbles: true, preventDefault() {} });
+  assert.equal(calls, 0);
+  host.document.querySelector('#play-area').dispatchEvent({ type: 'keydown', key: 'ArrowRight', bubbles: true, preventDefault() {} });
+  assert.equal(calls, 1);
+});

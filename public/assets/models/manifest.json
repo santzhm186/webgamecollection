@@ -364,6 +364,265 @@
         "runner",
         "shooter"
       ]
+    },
+    {
+      "id": "bridge-tile",
+      "name": "模块桥面 / Bridge tile",
+      "file": "bridge-tile.glb",
+      "bytes": 13256,
+      "triangles": 84,
+      "bounds": {
+        "min": [
+          -0.5,
+          -2.98023217215615e-10,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.43999999910593035,
+          0.5
+        ]
+      },
+      "nodes": 7,
+      "category": "environment",
+      "reuse": [
+        "pins",
+        "runner",
+        "warehouse"
+      ]
+    },
+    {
+      "id": "corner-wall",
+      "name": "转角墙 / Corner wall",
+      "file": "corner-wall.glb",
+      "bytes": 7872,
+      "triangles": 48,
+      "bounds": {
+        "min": [
+          -0.5,
+          1.341104505225843e-9,
+          -0.5100000035762786
+        ],
+        "max": [
+          0.5,
+          0.9799999993294477,
+          0.5
+        ]
+      },
+      "nodes": 4,
+      "category": "environment",
+      "reuse": [
+        "warehouse",
+        "pins"
+      ]
+    },
+    {
+      "id": "hazard-tile",
+      "name": "危险地块 / Hazard tile",
+      "file": "hazard-tile.glb",
+      "bytes": 11524,
+      "triangles": 72,
+      "bounds": {
+        "min": [
+          -0.5,
+          1.341104505225843e-9,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.13549999983236194,
+          0.5
+        ]
+      },
+      "nodes": 6,
+      "category": "environment",
+      "reuse": [
+        "runner",
+        "warehouse",
+        "shooter"
+      ]
+    },
+    {
+      "id": "shield-cell",
+      "name": "护盾电池 / Shield cell",
+      "file": "shield-cell.glb",
+      "bytes": 15656,
+      "triangles": 168,
+      "bounds": {
+        "min": [
+          -0.30000001192092896,
+          1.341104505225843e-9,
+          -0.30000001192092896
+        ],
+        "max": [
+          0.30000001192092896,
+          0.8200000007450581,
+          0.30000001192092896
+        ]
+      },
+      "nodes": 5,
+      "category": "prop",
+      "reuse": [
+        "shooter",
+        "runner"
+      ]
+    },
+    {
+      "id": "repair-kit",
+      "name": "维修补给 / Repair kit",
+      "file": "repair-kit.glb",
+      "bytes": 9776,
+      "triangles": 60,
+      "bounds": {
+        "min": [
+          -0.3799999952316284,
+          6.705522526129215e-10,
+          -0.2199999988079071
+        ],
+        "max": [
+          0.3799999952316284,
+          0.6350000017881393,
+          0.22999999966472387
+        ]
+      },
+      "nodes": 5,
+      "category": "prop",
+      "reuse": [
+        "shooter",
+        "warehouse",
+        "runner"
+      ]
+    },
+    {
+      "id": "sentry-turret",
+      "name": "模块炮塔 / Sentry turret",
+      "file": "sentry-turret.glb",
+      "bytes": 15864,
+      "triangles": 168,
+      "bounds": {
+        "min": [
+          -0.41999998688697815,
+          -3.5762786898541066e-9,
+          -0.41999998688697815
+        ],
+        "max": [
+          0.41999998688697815,
+          0.7799999993294477,
+          0.7499999916553497
+        ]
+      },
+      "nodes": 5,
+      "category": "mechanical",
+      "reuse": [
+        "shooter",
+        "runner",
+        "warehouse"
+      ]
+    },
+    {
+      "id": "pin-handle",
+      "name": "可抽拉插销 / Pull pin",
+      "file": "pin-handle.glb",
+      "bytes": 13452,
+      "triangles": 300,
+      "bounds": {
+        "min": [
+          -0.550000011920929,
+          -3.5762786898541066e-9,
+          -0.07999999821186066
+        ],
+        "max": [
+          0.9150000035762786,
+          0.43000000357627866,
+          0.07999999821186066
+        ]
+      },
+      "nodes": 3,
+      "category": "mechanical",
+      "reuse": [
+        "pins",
+        "screws"
+      ]
+    },
+    {
+      "id": "valve-wheel",
+      "name": "机关阀门 / Valve wheel",
+      "file": "valve-wheel.glb",
+      "bytes": 18888,
+      "triangles": 360,
+      "bounds": {
+        "min": [
+          -0.36500000953674316,
+          1.341104505225843e-9,
+          -0.36500000953674316
+        ],
+        "max": [
+          0.36500000953674316,
+          0.4789711447060109,
+          0.36500000953674316
+        ]
+      },
+      "nodes": 5,
+      "category": "mechanical",
+      "reuse": [
+        "pins",
+        "water-sort",
+        "screws"
+      ]
+    },
+    {
+      "id": "tube-rack",
+      "name": "模块试管架 / Tube rack",
+      "file": "tube-rack.glb",
+      "bytes": 31324,
+      "triangles": 780,
+      "bounds": {
+        "min": [
+          -0.800000011920929,
+          -7.450580569168253e-10,
+          -0.30000001192092896
+        ],
+        "max": [
+          0.800000011920929,
+          0.7699999991059303,
+          0.30000001192092896
+        ]
+      },
+      "nodes": 8,
+      "category": "prop",
+      "reuse": [
+        "water-sort",
+        "warehouse"
+      ]
+    },
+    {
+      "id": "star-token",
+      "name": "通关星章 / Star token",
+      "file": "star-token.glb",
+      "bytes": 19220,
+      "triangles": 276,
+      "bounds": {
+        "min": [
+          -0.3609213617130849,
+          -7.450580569168253e-10,
+          -0.3199999928474426
+        ],
+        "max": [
+          0.36092136171308487,
+          0.8399999964237213,
+          0.3199999928474426
+        ]
+      },
+      "nodes": 7,
+      "category": "prop",
+      "reuse": [
+        "runner",
+        "pins",
+        "screws",
+        "water-sort",
+        "warehouse",
+        "shooter"
+      ]
     }
   ]
 }

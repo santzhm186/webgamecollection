@@ -18,6 +18,7 @@ export default class WaterSortEngine {
     this.stars = 0;
     this.score = 0;
     this.history = [];
+    this._hintCache = null;
     this.trace = [];
     this.event = null;
     this.message = this.t('game.water-sort.intro');
@@ -72,7 +73,9 @@ export default class WaterSortEngine {
 
   hint() {
     if (this.status !== ENGINE_STATUS.PLAYING) return null;
-    const path = solve(this.tubes, this.config.capacity);
+    const key = JSON.stringify(this.tubes);
+    if (this._hintCache?.key !== key) this._hintCache = { key, path: solve(this.tubes, this.config.capacity) };
+    const path = this._hintCache.path;
     if (!path?.length) {
       this.message = this.t('game.water-sort.noRoute');
       this.highlight = null;

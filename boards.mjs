@@ -85,7 +85,16 @@ function createBoardRenderer({ build, target, prefix }) {
       draw(engine, options = {}) {
         latestEngine = engine; latestOptions = options;
         if (!host) return;
+        const focused = host.ownerDocument?.activeElement;
+        const selector = target === 'pin' ? '[data-pin]' : '[data-plate]';
+        const buttons = [...host.querySelectorAll(selector)];
+        const index = buttons.indexOf(focused);
         host.innerHTML = build(engine, { prefix: this._prefix, ...options });
+        if (index >= 0) {
+          const next = [...host.querySelectorAll(selector)];
+          const candidate = next[index];
+          (candidate && !candidate.disabled ? candidate : next.find((button, i) => i >= index && !button.disabled) ?? next.find(button => !button.disabled))?.focus?.({ preventScroll: true });
+        }
       },
 
       /** 必须解绑：宿主会在切换关卡/关闭游戏时调用 */

@@ -238,3 +238,13 @@ test('彩液分装：懒加载入口数量正确、无需逐帧计时、辅助�
   assert.equal((await manifest.levels()).default, LEVELS);
   assert.equal(createGame(5).assistGoal(), 'game.water-sort.target:{"n":18}');
 });
+
+test('彩液分装：提示缓存随棋盘变化更新，撤销后仍给出合法提示', () => {
+  const game = createGame(0); game.start();
+  const first = game.hint();
+  game.pour(...first);
+  const next = game.hint();
+  assert.ok(pourAmount(game.tubes, next[0], next[1], game.config.capacity) > 0);
+  game.undo();
+  assert.deepEqual(game.hint(), first);
+});
