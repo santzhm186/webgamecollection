@@ -17,13 +17,13 @@
   </head>
 <body>
   <aside class="sidebar">
-    <a class="brand" href="#" aria-label="玩得到首页" data-i18n-attr="aria-label:app.brandLabel"><span class="brand-icon">w<span>↗</span></span><span><span data-i18n="app.name">玩得到</span><small data-i18n="app.tagline">PLAY THE AD.</small></span></a>
+    <a class="brand" href="#" aria-label="玩得到首页" data-i18n-attr="aria-label:app.brandLabel"><span class="brand-icon">w<span aria-hidden="true">↗</span></span><span><span data-i18n="app.name">玩得到</span><small data-i18n="app.tagline">PLAY THE AD.</small></span></a>
     <div class="nav-label" data-i18n="nav.label">你的小游戏街机</div>
     <nav aria-label="游戏分类">
-      <button class="nav-item active" data-filter="all"><span>▦</span> <span data-i18n="nav.all">全部游戏</span> <b>03</b></button>
-      <button class="nav-item" data-filter="action"><span>↗</span> <span data-i18n="nav.action">动作冲关</span></button>
-      <button class="nav-item" data-filter="puzzle"><span>◇</span> <span data-i18n="nav.puzzle">脑力解谜</span></button>
-      <button class="nav-item" data-filter="casual"><span>◎</span> <span data-i18n="nav.casual">休闲解压</span></button>
+      <button class="nav-item active" data-filter="all"><span aria-hidden="true">▦</span> <span data-i18n="nav.all">全部游戏</span> <b>03</b></button>
+      <button class="nav-item" data-filter="action"><span aria-hidden="true">↗</span> <span data-i18n="nav.action">动作冲关</span></button>
+      <button class="nav-item" data-filter="puzzle"><span aria-hidden="true">◇</span> <span data-i18n="nav.puzzle">脑力解谜</span></button>
+      <button class="nav-item" data-filter="casual"><span aria-hidden="true">◎</span> <span data-i18n="nav.casual">休闲解压</span></button>
     </nav>
     <div class="sidebar-note"><span class="small-star">✳</span><strong data-i18n="nav.sloganTitle">眼睛会了，手试试。</strong><p data-i18n="nav.sloganBody">那些刷到过的小游戏，<br>这次真的能玩。</p><span class="version" data-i18n="app.versionBadge" data-i18n-params="version:0.2">独立开发 · v0.2</span></div>
     <div class="sidebar-bottom"><i></i> <span data-i18n="app.noDownload">无需下载，即开即玩</span></div>
@@ -37,8 +37,8 @@
       </div>
     </header>
     <section class="hero">
-      <div class="hero-copy"><div class="eyebrow"><span></span> <span data-i18n="home.eyebrow">广告里的游戏，这里有真的</span></div><h1><span data-i18n="home.title1">别光看。</span><br><span data-i18n="home.title2">这次，</span><em data-i18n="home.title3">你来玩。</em><span class="hero-spark">✳</span></h1><p data-i18n="home.subtitle">拉开那根针，选对那扇门，拧下最后一颗螺丝。<br>熟悉的玩法，打开就能玩。</p><button class="primary" data-open="runner"><span data-i18n="home.cta">先来一局</span> <span>↗</span></button><div class="hero-foot"><span data-i18n="home.zeroAds">0 广告</span><i>·</i><span data-i18n="home.zeroDownload">0 下载</span><i>·</i><span data-i18n="home.truePlay">100% 真能玩</span></div></div>
-      <button class="hero-art" data-open="runner" aria-label="开始加减门冲关" data-i18n-attr="aria-label:game.runner.artLabel"><div class="art-grid"></div><span class="art-tag"><span data-i18n="home.pickOfDay">本日推荐</span> <span>↗</span></span><img class="hero-preview" src="public/assets/art/runner-preview.svg" width="480" height="420" alt="" aria-hidden="true"><div class="art-caption"><span><span data-i18n="home.heroCaption1">选对一扇门。</span><br><strong data-i18n="home.heroCaption2">带着你的队伍，冲！</strong></span><span class="round-arrow">↗</span></div><span class="floating-note" data-i18n="home.heroNote">+14 还是 ×2？</span></button>
+      <div class="hero-copy"><div class="eyebrow"><span></span> <span data-i18n="home.eyebrow">广告里的游戏，这里有真的</span></div><h1><span data-i18n="home.title1">别光看。</span><br><span data-i18n="home.title2">这次，</span><em data-i18n="home.title3">你来玩。</em><span class="hero-spark" aria-hidden="true">✳</span></h1><p data-i18n="home.subtitle">拉开那根针，选对那扇门，拧下最后一颗螺丝。<br>熟悉的玩法，打开就能玩。</p><button class="primary" data-open="runner"><span data-i18n="home.cta">先来一局</span> <span aria-hidden="true">↗</span></button><div class="hero-foot"><span data-i18n="home.zeroAds">0 广告</span><i>·</i><span data-i18n="home.zeroDownload">0 下载</span><i>·</i><span data-i18n="home.truePlay">100% 真能玩</span></div></div>
+      <button class="hero-art" data-open="runner" aria-label="开始加减门冲关" tabindex="-1" data-i18n-attr="aria-label:game.runner.artLabel"><div class="art-grid"></div><span class="art-tag"><span data-i18n="home.pickOfDay">本日推荐</span> <span aria-hidden="true">↗</span></span><img class="hero-preview" src="public/assets/art/runner-preview.svg" width="480" height="420" alt="" aria-hidden="true"><div class="art-caption"><span><span data-i18n="home.heroCaption1">选对一扇门。</span><br><strong data-i18n="home.heroCaption2">带着你的队伍，冲！</strong></span><span class="round-arrow" aria-hidden="true">↗</span></div><span class="floating-note" data-i18n="home.heroNote">+14 还是 ×2？</span></button>
     </section>
     <section class="collection" aria-labelledby="collection-title">
       <div class="section-heading"><div><span class="eyebrow muted" data-i18n="home.collectionEyebrow">PICK YOUR NEXT OBSESSION</span><h2 id="collection-title"><span data-i18n="home.collectionTitle">挑一个，玩真的。</span><span id="game-count">03</span></h2></div><label class="search"><span>⌕</span><input id="search" type="search" data-i18n-attr="aria-label:home.searchLabel,placeholder:home.searchPlaceholder" aria-label="搜索游戏" placeholder="找个小游戏…"></label></div>
@@ -47,7 +47,7 @@
       <div class="game-grid" id="game-grid"></div>
       <template id="game-card-template">
         <article class="game-card">
-          <button class="card-art" data-open="">
+          <button class="card-art" data-open="" tabindex="-1">
             <span class="card-number"></span>
             <img class="card-preview" width="480" height="420" loading="lazy" alt="" aria-hidden="true">
             <span class="play-circle">↗</span>
@@ -55,7 +55,7 @@
           <div class="card-body">
             <div class="card-title"><h3></h3><span class="badge" data-i18n="progress.levels" data-i18n-params="n:0,total:3">0 / 3 关</span></div>
             <p></p>
-            <div class="card-footer"><span></span><button data-open=""><span data-i18n="home.openGame">开玩</span> <span>↗</span></button></div>
+            <div class="card-footer"><span></span><button data-open=""><span data-i18n="home.openGame">开玩</span> <span aria-hidden="true">↗</span></button></div>
           </div>
         </article>
       </template>
