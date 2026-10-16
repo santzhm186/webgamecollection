@@ -27,12 +27,12 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 
 /* ============================================================ 注册表 */
 
-test('注册表：三个游戏全部加载成功且 id/顺序正确', async () => {
+test('注册表：内置游戏全部加载成功且 id/顺序正确', async () => {
   const registry = createRegistry();
   const result = await registry.load(MODULES);
-  assert.deepEqual(result, { loaded: 3, failed: 0 }, '内置游戏必须全部加载成功');
-  assert.deepEqual(registry.list().map(m => m.id), ['runner', 'pins', 'screws'], '卡片顺序由 order 决定');
-  assert.deepEqual(registry.list().map(m => m.order), ['01', '02', '03']);
+  assert.deepEqual(result, { loaded: 6, failed: 0 }, '内置游戏必须全部加载成功');
+  assert.deepEqual(registry.list().map(m => m.id), ['runner', 'pins', 'screws', 'water-sort', 'warehouse', 'shooter'], '卡片顺序由 order 决定');
+  assert.deepEqual(registry.list().map(m => m.order), ['01', '02', '03', '04', '05', '06']);
   for (const manifest of registry.list()) {
     assert.equal(hostApiStatus(manifest.hostApi), 'compatible', `${manifest.id} 声明了不兼容的 hostApi`);
   }

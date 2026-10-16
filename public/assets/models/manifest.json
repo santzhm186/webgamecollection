@@ -1,0 +1,369 @@
+{
+  "version": 1,
+  "format": "glTF 2.0",
+  "units": "metres",
+  "up": "+Y",
+  "forward": "+Z",
+  "assets": [
+    {
+      "id": "scout-bot",
+      "name": "巡游机器人 / Scout bot",
+      "file": "scout-bot.glb",
+      "bytes": 39756,
+      "triangles": 480,
+      "bounds": {
+        "min": [
+          -0.4989931886855085,
+          -2.98023217215615e-10,
+          -0.32500000298023224
+        ],
+        "max": [
+          0.4989931886855085,
+          1.4349999997019767,
+          0.30000001192092896
+        ]
+      },
+      "nodes": 15,
+      "category": "character",
+      "reuse": [
+        "runner",
+        "pins",
+        "shooter"
+      ]
+    },
+    {
+      "id": "cargo-bot",
+      "name": "货运机器人 / Cargo bot",
+      "file": "cargo-bot.glb",
+      "bytes": 25056,
+      "triangles": 204,
+      "bounds": {
+        "min": [
+          -0.36000000029802326,
+          2.3841857654804954e-9,
+          -0.28999999165534973
+        ],
+        "max": [
+          0.36000000029802326,
+          0.9399999991059304,
+          0.5449999940395356
+        ]
+      },
+      "nodes": 11,
+      "category": "character",
+      "reuse": [
+        "warehouse",
+        "shooter",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "enemy-drone",
+      "name": "警戒无人机 / Enemy drone",
+      "file": "enemy-drone.glb",
+      "bytes": 35588,
+      "triangles": 768,
+      "bounds": {
+        "min": [
+          -0.6849999928474426,
+          -1.4901161138336505e-9,
+          -0.3100000023841858
+        ],
+        "max": [
+          0.6849999928474426,
+          0.7300000023841857,
+          0.3449999996647239
+        ]
+      },
+      "nodes": 10,
+      "category": "character",
+      "reuse": [
+        "shooter",
+        "runner"
+      ]
+    },
+    {
+      "id": "boss-sentry",
+      "name": "重装守卫 / Boss sentry",
+      "file": "boss-sentry.glb",
+      "bytes": 19480,
+      "triangles": 168,
+      "bounds": {
+        "min": [
+          -0.525000005364418,
+          2.980232227667301e-9,
+          -0.41499999165534973
+        ],
+        "max": [
+          0.525000005364418,
+          1.1499999991059304,
+          0.6949999964237212
+        ]
+      },
+      "nodes": 8,
+      "category": "character",
+      "reuse": [
+        "shooter",
+        "runner"
+      ]
+    },
+    {
+      "id": "cargo-crate",
+      "name": "标准货箱 / Cargo crate",
+      "file": "cargo-crate.glb",
+      "bytes": 13784,
+      "triangles": 84,
+      "bounds": {
+        "min": [
+          -0.4099999964237213,
+          0.02000000134110451,
+          -0.39500001072883606
+        ],
+        "max": [
+          0.4099999964237213,
+          0.8599999986588955,
+          0.4025000000745058
+        ]
+      },
+      "nodes": 7,
+      "category": "prop",
+      "reuse": [
+        "warehouse",
+        "runner",
+        "shooter"
+      ]
+    },
+    {
+      "id": "upgrade-crate",
+      "name": "强化补给箱 / Upgrade crate",
+      "file": "upgrade-crate.glb",
+      "bytes": 17356,
+      "triangles": 108,
+      "bounds": {
+        "min": [
+          -0.4099999964237213,
+          0.02000000134110451,
+          -0.39500001072883606
+        ],
+        "max": [
+          0.4099999964237213,
+          0.8599999986588955,
+          0.4225000001862645
+        ]
+      },
+      "nodes": 9,
+      "category": "prop",
+      "reuse": [
+        "shooter",
+        "runner"
+      ]
+    },
+    {
+      "id": "floor-tile",
+      "name": "模块地块 / Floor tile",
+      "file": "floor-tile.glb",
+      "bytes": 7996,
+      "triangles": 48,
+      "bounds": {
+        "min": [
+          -0.5,
+          2.384185793236071e-9,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.1949999998882413,
+          0.5
+        ]
+      },
+      "nodes": 4,
+      "category": "environment",
+      "reuse": [
+        "warehouse",
+        "shooter",
+        "runner"
+      ]
+    },
+    {
+      "id": "wall-block",
+      "name": "模块墙体 / Wall block",
+      "file": "wall-block.glb",
+      "bytes": 9880,
+      "triangles": 60,
+      "bounds": {
+        "min": [
+          -0.5,
+          1.341104505225843e-9,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.880000000745058,
+          0.515000000372529
+        ]
+      },
+      "nodes": 5,
+      "category": "environment",
+      "reuse": [
+        "warehouse",
+        "pins",
+        "shooter"
+      ]
+    },
+    {
+      "id": "dock-pad",
+      "name": "发光泊位 / Dock pad",
+      "file": "dock-pad.glb",
+      "bytes": 17216,
+      "triangles": 324,
+      "bounds": {
+        "min": [
+          -0.5,
+          1.341104505225843e-9,
+          -0.5
+        ],
+        "max": [
+          0.5,
+          0.19765063470602043,
+          0.5
+        ]
+      },
+      "nodes": 5,
+      "category": "environment",
+      "reuse": [
+        "warehouse",
+        "shooter",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "energy-gate",
+      "name": "能量门框 / Energy gate",
+      "file": "energy-gate.glb",
+      "bytes": 17468,
+      "triangles": 108,
+      "bounds": {
+        "min": [
+          -0.8699999976158143,
+          1.7881393449270533e-9,
+          -0.2150000035762787
+        ],
+        "max": [
+          0.8699999976158143,
+          1.819999997317791,
+          0.2150000035762787
+        ]
+      },
+      "nodes": 9,
+      "category": "prop",
+      "reuse": [
+        "runner",
+        "shooter",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "screw",
+      "name": "十字螺丝 / Cross screw",
+      "file": "screw.glb",
+      "bytes": 47408,
+      "triangles": 1320,
+      "bounds": {
+        "min": [
+          -0.23000000417232513,
+          0.01000000536441803,
+          -0.23000000417232513
+        ],
+        "max": [
+          0.23000000417232513,
+          0.6330000002160668,
+          0.23000000417232513
+        ]
+      },
+      "nodes": 9,
+      "category": "mechanical",
+      "reuse": [
+        "screws",
+        "warehouse",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "metal-plate",
+      "name": "通用连接板 / Connector plate",
+      "file": "metal-plate.glb",
+      "bytes": 33508,
+      "triangles": 696,
+      "bounds": {
+        "min": [
+          -0.9699999988079071,
+          2.980232241545089e-10,
+          -0.2199999988079071
+        ],
+        "max": [
+          0.9699999988079071,
+          0.13125833019614222,
+          0.2199999988079071
+        ]
+      },
+      "nodes": 8,
+      "category": "mechanical",
+      "reuse": [
+        "screws",
+        "warehouse",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "test-tube",
+      "name": "透明试管 / Glass test tube",
+      "file": "test-tube.glb",
+      "bytes": 29768,
+      "triangles": 720,
+      "bounds": {
+        "min": [
+          -0.26600000262260437,
+          -4.1723251242853365e-9,
+          -0.26600000262260437
+        ],
+        "max": [
+          0.26600000262260437,
+          1.4303108897060155,
+          0.26600000262260437
+        ]
+      },
+      "nodes": 8,
+      "category": "prop",
+      "reuse": [
+        "water-sort",
+        "future-puzzle"
+      ]
+    },
+    {
+      "id": "coin",
+      "name": "收藏金币 / Collectible coin",
+      "file": "coin.glb",
+      "bytes": 13292,
+      "triangles": 300,
+      "bounds": {
+        "min": [
+          -0.3799999952316284,
+          0.020000004768371604,
+          -0.05000000074505814
+        ],
+        "max": [
+          0.3799999952316284,
+          0.7799999952316284,
+          0.08838268607854843
+        ]
+      },
+      "nodes": 3,
+      "category": "prop",
+      "reuse": [
+        "pins",
+        "runner",
+        "shooter"
+      ]
+    }
+  ]
+}

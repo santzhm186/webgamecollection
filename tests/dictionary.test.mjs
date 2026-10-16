@@ -19,6 +19,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 
+import { MODULES } from '../games/index.js';
 import { BUNDLES } from '../src/locales/index.js';
 import { LOCALES, DEFAULT_LOCALE, isSupportedLocale, localeMeta } from '../src/core/locales.js';
 import { t, setLocale, getLocale, onLocaleChange, localeOptions, parseParams } from '../src/core/i18n.js';
@@ -54,14 +55,17 @@ test('T1 文案键命名符合约定：全部小写点分，area 在白名单内
   const areas = new Set(['app', 'nav', 'home', 'dialog', 'status', 'progress', 'result', 'common', 'game']);
   for (const key of Object.keys(BUNDLES[DEFAULT_LOCALE])) {
     // 段内允许 camelCase（app.footerYear），但每段必须以小写字母开头
-    assert.match(key, /^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*){1,3}$/, `键格式不合法: ${key}`);
+    const pattern = key.startsWith('game.')
+      ? /^game\.[a-z][a-z0-9-]*\.[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*)?$/
+      : /^[a-z][a-zA-Z0-9]*(\.[a-z][a-zA-Z0-9]*){1,3}$/;
+    assert.match(key, pattern, `键格式不合法: ${key}`);
     const [area] = key.split('.');
     assert.ok(areas.has(area), `键 ${key} 的 area "${area}" 不在允许清单内（见 docs/NAMING-CONVENTIONS.md）`);
   }
 });
 
-test('T1 游戏专属文案必须放在 game.<id> 下，且 id 与注册游戏一致', () => {
-  const gameIds = new Set(['runner', 'pins', 'screws']);
+test('T1 游戏专属文案必须放在 game.<id> 下，且 id 与注册游戏一致', async () => {
+  const gameIds = new Set(await Promise.all(MODULES.map(async load => (await load()).default.id)));
   const seen = new Set();
   for (const key of Object.keys(BUNDLES[DEFAULT_LOCALE])) {
     const parts = key.split('.');
@@ -257,7 +261,8 @@ const isLineAllowlisted = (file, line) =>
   HARDCODE_ALLOWLIST.some(item => item.file === file && item.linePattern && item.linePattern.test(line));
 
 test('T4 JS 界面文件不得硬编码面向玩家的中文文案', async () => {
-  const files = ['app.mjs', 'boards.mjs', 'engine.mjs', 'games/runner/render.js'];
+  const files = ['app.mjs', 'boards.mjs', 'engine.mjs',
+    ...(await collectFiles('games', name => name.endsWith('.js'))).filter(file => !file.startsWith('games/_template/'))];
   const violations = [];
   for (const file of files) {
     if (isFileAllowlisted(file)) continue;

@@ -131,7 +131,7 @@ test('宿主：首页只加载 manifest，主 CTA 点击可打开 runner', async
   assert.deepEqual(host.errors, []);
 });
 
-test('宿主：三款卡片与总进度由各自 manifest 驱动，切换语言不会覆盖它们', async () => {
+test('宿主：全部卡片与总进度由各自 manifest 驱动，切换语言不会覆盖它们', async () => {
   const host = await boot({ saved: { pins: [{ stars: 3, score: 100 }] } });
   const assertCards = locale => {
     for (const manifest of host.manifests) {
@@ -149,7 +149,7 @@ test('宿主：三款卡片与总进度由各自 manifest 驱动，切换语言�
       }
     }
     assert.equal(host.document.querySelector('#completed-label').textContent,
-      i18n.t('progress.completed', { n: 0, total: 3 }).replace(/<[^>]*>/g, ''));
+      i18n.t('progress.completed', { n: 0, total: host.manifests.length }).replace(/<[^>]*>/g, ''));
   };
   assertCards('zh-CN');
   const select = host.document.querySelector('#language-select');
@@ -261,4 +261,26 @@ test('宿主：较早开局的慢游戏不得覆盖后来已打开的游戏', as
   assert.equal(host.window.__dsh.state.gameId, 'pins');
   assert.equal(host.document.querySelector('#game-dialog').dataset.game, 'pins');
   assert.deepEqual(host.errors, []);
+});
+
+test('宿主：彩液分装反复撤销由引擎决定，三星结算解锁下一关并保存旧记录', async () => {
+  const host = await boot({ saved: { runner: [{ stars: 2, score: 900 }] } });
+  const session = await host.open('water-sort');
+  assert.equal(host.document.querySelector('.helper-tools > span').textContent, session.engine.assistGoal());
+  host.document.querySelector('#start-game').click();
+  const pick = i => host.document.querySelector(`[data-water-tube="${i}"]`).click();
+  for (let i = 0; i < 3; i++) {
+    pick(0); pick(2);
+    assert.equal(host.document.querySelector('#undo-button').disabled, false);
+    host.document.querySelector('#undo-button').click();
+    assert.equal(session.engine.moves, 0);
+  }
+  for (const [from, to] of [[0, 2], [1, 0], [1, 2]]) { pick(from); pick(to); }
+  assert.equal(session.status, 'won');
+  assert.equal(session.engine.stars, 3);
+  assert.equal(host.document.querySelector('#next-level').hidden, false);
+  const saved = JSON.parse(host.storage.get('wande-dao-progress-v2'));
+  assert.equal(saved['water-sort'][0].stars, 3);
+  assert.deepEqual(saved.runner[0], { stars: 2, score: 900 });
+  assert.equal(saved.runner.length, 5);
 });

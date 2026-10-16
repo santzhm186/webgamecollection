@@ -19,17 +19,19 @@
  */
 import { t, starRow } from '../../src/core/host-surface.js';
 import { rounded, label, polygon, verticalGradient } from '../../src/ui/scene/primitives.js';
-import { init3DModels, getSoldierSprite } from '../../src/ui/scene/three-models.js';
+import { getSoldierSprite } from '../../src/ui/scene/three-models.js';
 import RUNNER_LEVELS from './levels.js';
 
 export const LOGICAL_WIDTH = 480;
 export const LOGICAL_HEIGHT = 420;
 
-/** 三关的环境色（天空 / 地面 / 远山），让三个关卡一眼可辨 */
+/** Five distinct campaign biomes share the same geometry and visual language. */
 const PALETTE = [
   { sky: ['#183e54', '#285c65'], ground: '#315c62' },
   { sky: ['#503c55', '#865b5f'], ground: '#77515b' },
   { sky: ['#282b51', '#4d4260'], ground: '#4a4460' },
+  { sky: ['#613e3a', '#ad7757'], ground: '#b2805d' },
+  { sky: ['#102c43', '#326b72'], ground: '#5f9195' },
 ];
 
 // 全局缓存 3D Sprite
@@ -96,7 +98,7 @@ function gateArt(ctx, choice, x, y, width, height, time, selected) {
   }
   rounded(ctx, x - 2, y - height - 3, width + 5, 7, 2, tint);
   label(ctx, choice.join(''), x + width / 2, y - height / 2 + 10, Math.min(34, height * .43), '#113b42', 850);
-  label(ctx, t(multiply ? 'game.runner.gateMultiply' : 'game.runner.gateRecruit'), x + width / 2, y - 9, Math.max(6, height * .1), '#204d51aa', 650);
+  label(ctx, t(bad ? 'game.runner.gateTrap' : multiply ? 'game.runner.gateMultiply' : 'game.runner.gateRecruit'), x + width / 2, y - 9, Math.max(6, height * .1), '#204d51aa', 650);
   if (selected) {
     ctx.shadowColor = tint; ctx.shadowBlur = 13; ctx.strokeStyle = tint; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x + 10, y + 15); ctx.lineTo(x + width - 10, y + 15); ctx.stroke();
@@ -128,6 +130,16 @@ export function drawScene(ctx, state, { preview = false, clock = state.time || 0
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = '#ffdf9b'; ctx.shadowColor = '#ffeaaa'; ctx.shadowBlur = 28;
   ctx.beginPath(); ctx.arc(347, 55, 23, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+  if (level === 4) {
+    ctx.save(); ctx.globalAlpha = .25;
+    for (let i = 0; i < 4; i++) {
+      ctx.strokeStyle = ['#91f6c8', '#88d2e9', '#b9a9ef', '#97dfc1'][i]; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(0, 42 + i * 13);
+      ctx.bezierCurveTo(145, -15 + i * 16, 210, 117 - i * 10, 480, 30 + i * 15); ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   // 远山与地面
   polygon(ctx, [[0, 120], [0, 75], [55, 53], [91, 82], [137, 46], [177, 100], [230, 71], [288, 111], [370, 76], [430, 95], [480, 62], [480, 180]], '#203b4b');
@@ -232,7 +244,7 @@ export function drawScene(ctx, state, { preview = false, clock = state.time || 0
     if (state.event?.type === 'gate' && state.time - state.event.at < 1.3) {
       const elapsed = state.time - state.event.at;
       ctx.globalAlpha = 1 - elapsed / 1.3;
-      label(ctx, `+${state.event.gain}`, center, 273 - elapsed * 27, 27, '#d8ff9a');
+      label(ctx, `${state.event.gain >= 0 ? '+' : ''}${state.event.gain}`, center, 273 - elapsed * 27, 27, '#d8ff9a');
       label(ctx, t('game.runner.canvasLoss', { n: state.event.loss }), center, 292 - elapsed * 18, 11, '#ffbaaa');
       ctx.globalAlpha = 1;
     }
@@ -286,6 +298,8 @@ export default function createRenderer() {
   let rightButton = null;
   let pauseButton = null;
   let pointerId = null;
+  let latestEngine = null;
+  let generation = 0;
   const listeners = [];
 
   function listen(target, type, callback) {
@@ -320,13 +334,12 @@ export default function createRenderer() {
       host = nextHost;
       const translate = typeof ctx.t === 'function' ? ctx.t : t;
 
-      // 在挂载时尝试初始化 3D 渲染降级模块
-      init3DModels().then(supported => {
-        if (supported) {
-          getSoldierSprite('#1fc8eb').then(img => { playerSprite = img; }).catch(e => console.warn(e));
-          getSoldierSprite('#ea4b5c').then(img => { enemySprite = img; }).catch(e => console.warn(e));
-        }
-      }).catch(e => console.warn(e));
+      const token = ++generation;
+      Promise.all([getSoldierSprite('#58c9ec'), getSoldierSprite('#f58a79')]).then(([player, enemy]) => {
+        if (token !== generation || !host) return;
+        playerSprite = player; enemySprite = enemy;
+        if (latestEngine) this.draw(latestEngine);
+      }).catch(() => {});
       board = document.createElement('div');
       board.className = 'runner-board';
       canvas = document.createElement('canvas');
@@ -384,12 +397,13 @@ export default function createRenderer() {
       host.append(board);
       resize();
       // 用 ResizeObserver 而非 window.resize：宿主容器尺寸变化（如切换关卡重排）也能感知
-      this._observer = new ResizeObserver(() => { resize(); if (engine) this.draw(engine); });
+      this._observer = new ResizeObserver(() => { resize(); if (latestEngine) this.draw(latestEngine); });
       this._observer.observe(host);
       this.draw(engine);
     },
 
     draw(engine) {
+      latestEngine = engine;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       ctx.setTransform(canvas.width / LOGICAL_WIDTH, 0, 0, canvas.height / LOGICAL_HEIGHT, 0, 0);
@@ -410,6 +424,7 @@ export default function createRenderer() {
      * 表现为内存与 CPU 占用持续上涨（本项目 T6 测试会 import 本文件，防止语法类回归）。
      */
     destroy() {
+      generation++; latestEngine = null;
       this._observer?.disconnect();
       this._observer = null;
       for (const [target, type, callback] of listeners.splice(0)) target.removeEventListener(type, callback);

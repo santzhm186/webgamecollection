@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 // runner 已迁移到 games/runner/（P3）；pins 与 screws 暂时仍在根目录 engine.mjs（P4 迁移）。
-// 断言部分在迁移过程中**一行未改** —— 这是重构的安全网。
+// 穷举路线与机关顺序，为关卡扩展和迁移提供同一条安全网。
 import Runner, { applyGate, runnerBalance } from '../games/runner/engine.js';
 import RUNNER_LEVELS from '../games/runner/levels.js';
 import { Pins, PIN_LEVELS, Screws, SCREW_LEVELS, solveScrews } from '../engine.mjs';
@@ -37,7 +37,7 @@ test('gate arithmetic supports addition, multiplication and nonnegative subtract
   assert.equal(applyGate(12, ['×', 3]), 36);
   assert.equal(applyGate(12, ['−', 15]), 0);
 });
-test('all 224 runner routes match their balance calculation and terminate', () => {
+test('every runner route matches its balance calculation and terminates', () => {
   RUNNER_LEVELS.forEach((config, level) => {
     let wins = 0, max = 0, threeStars = 0;
     for (let bits = 0; bits < 2 ** config.gates.length; bits++) {
@@ -63,10 +63,13 @@ test('all 224 runner routes match their balance calculation and terminate', () =
 test('runner difficulty tightens progressively, with attainable three-star routes', () => {
   const stats = RUNNER_LEVELS.map((_, i) => runnerBalance(i));
   assert.ok(stats[0].winning / stats[0].routes >= .45);
-  assert.ok(stats[1].winning / stats[1].routes < stats[0].winning / stats[0].routes);
-  assert.ok(stats[2].winning / stats[2].routes < stats[1].winning / stats[1].routes);
-  assert.ok(stats[2].winning / stats[2].routes >= .1);
-  stats.forEach((value, i) => { assert.ok(value.threeStars > 0); assert.equal(RUNNER_LEVELS[i].stars[0], RUNNER_LEVELS[i].boss); });
+  stats.forEach((value, i) => {
+    assert.ok(value.threeStars > 0);
+    assert.equal(RUNNER_LEVELS[i].stars[0], RUNNER_LEVELS[i].boss);
+    assert.ok(value.winning / value.routes >= .05, `level ${i + 1} should leave room to recover`);
+    if (i) assert.ok(value.winning / value.routes < stats[i - 1].winning / stats[i - 1].routes);
+  });
+  assert.ok(RUNNER_LEVELS.slice(3).every(config => config.gates.some(gate => gate.choices.some(choice => choice[0] === '−'))));
 });
 test('runner waits for start, clamps delayed frames and ignores invalid time deltas', () => {
   const game = new Runner(); game.tick(10); assert.equal(game.time, 0);
@@ -81,7 +84,7 @@ test('all pin permutations resolve, and independent hazards allow either safe or
       assert.notEqual(game.status, 'playing');
       if (game.status === 'won') { wins++; assert.equal(game.stars, 3); assert.equal(game.moves, config.pins.length); }
     }
-    assert.equal(wins, config.spider && config.gas ? 2 : 1, `pin level ${level + 1}`);
+    assert.equal(wins, config.spider && config.gas && !config.ventBlockedBySpider ? 2 : 1, `pin level ${level + 1}`);
   });
 });
 test('pin hints always lead to a safe solution and affect stars without blocking progression', () => {
@@ -96,7 +99,23 @@ test('duplicate, unknown and post-failure pin moves have no effect', () => {
   const game = new Pins(); assert.equal(game.pull('unknown'), false); game.pull('water'); game.pull('water'); assert.equal(game.moves, 1);
   game.pull('treasure'); assert.equal(game.status, 'lost'); game.pull('drain'); assert.equal(game.drained, false);
 });
-test('all six screw boards have a valid solution, including every three-hole plate', () => {
+test('new pin dependencies reject venting through webs and draining before the support bridge', () => {
+  const blockedVent = new Pins(6);
+  assert.deepEqual(blockedVent.safePins(), ['spider']);
+  blockedVent.pull('vent'); assert.equal(blockedVent.status, 'lost'); assert.equal(blockedVent.gas, true);
+  const earlyDrain = new Pins(7);
+  ['spider', 'vent', 'water'].forEach(pin => earlyDrain.pull(pin));
+  assert.deepEqual(earlyDrain.safePins(), ['bridge']);
+  earlyDrain.pull('drain'); assert.equal(earlyDrain.status, 'lost'); assert.equal(earlyDrain.drained, false);
+  const earlyBridge = new Pins(7);
+  earlyBridge.pull('bridge'); assert.equal(earlyBridge.status, 'lost'); assert.equal(earlyBridge.bridge, false);
+  const supported = new Pins(7);
+  ['spider', 'vent', 'water', 'bridge', 'drain', 'treasure'].forEach(pin => {
+    assert.ok(supported.safePins().includes(pin)); supported.pull(pin);
+  });
+  assert.equal(supported.status, 'won'); assert.equal(supported.stars, 3);
+});
+test('all screw boards have a valid solution, including every three-hole plate', () => {
   SCREW_LEVELS.forEach((_, level) => {
     const game = new Screws(level), solution = solveScrews(game);
     assert.ok(solution?.length);
@@ -139,7 +158,8 @@ test('undo recovers a full-buffer failure exactly once, without erasing hint pen
 test('screw hints select a solvable continuation and terminal wins reject undo', () => {
   SCREW_LEVELS.forEach((_, level) => {
     const game = new Screws(level);
-    for (let i = 0; i < 25 && game.status === 'playing'; i++) { const move = game.hint(); assert.ok(move); game.remove(...move); }
+    const bolts = game.plates.reduce((sum, plate) => sum + plate.removed.length, 0);
+    for (let i = 0; i < bolts && game.status === 'playing'; i++) { const move = game.hint(); assert.ok(move); game.remove(...move); }
     assert.equal(game.status, 'won'); assert.equal(game.stars, 1); assert.equal(game.undo(), false);
   });
 });

@@ -4,22 +4,18 @@
 import { PIN_POINTS, pinLabel } from './games/pins/dictionary.js';
 import { screwPosition, screwEndLabel } from './games/screws/dictionary.js';
 import { t } from './src/core/i18n.js';
-import { init3DModels, getSoldierSprite, getCoinSprite } from './src/ui/scene/three-models.js';
+import { getSoldierSprite, getCoinSprite } from './src/ui/scene/three-models.js';
 
 let pinExplorerSrc = null;
 let pinCoinSrc = null;
 
-// 在加载此模块时，异步初始化 3D 并在就绪后填充 sprite 的 dataURL
-init3DModels().then(supported => {
-  if (supported) {
-    getSoldierSprite('#daac64').then(img => {
-      if (img) pinExplorerSrc = img.src;
-    }).catch(e => console.warn(e));
-    getCoinSprite().then(img => {
-      if (img) pinCoinSrc = img.src;
-    }).catch(e => console.warn(e));
-  }
-}).catch(e => console.warn(e));
+let pinSprites = null;
+function loadPinSprites() {
+  return pinSprites ||= Promise.all([getSoldierSprite('#e7b970'), getCoinSprite()]).then(([explorer, coin]) => {
+    pinExplorerSrc = explorer?.src ?? null;
+    pinCoinSrc = coin?.src ?? null;
+  });
+}
 
 /**
  * 兼容再导出：PIN_POINTS 已移到 games/pins/dictionary.js（游戏私有布局）。
@@ -57,12 +53,19 @@ function createBoardRenderer({ build, target, prefix }) {
     let host = null;
     /** @type {((event: Event) => void)|null} */
     let onClick = null;
+    let generation = 0, latestEngine = null, latestOptions = {};
 
     return {
       kind: 'dom',
 
       mount(nextHost, engine, ctx) {
+        this.destroy();
         host = nextHost;
+        latestEngine = engine;
+        const token = ++generation;
+        if (target === 'pin') loadPinSprites().then(() => {
+          if (host && token === generation && latestEngine) this.draw(latestEngine, latestOptions);
+        }).catch(() => {});
         // 每次挂载用新的前缀：同时存在多个场景（如预览 + 对局）时 SVG defs id 不会互相覆盖
         this._prefix = `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
         host.innerHTML = build(engine, { prefix: this._prefix });
@@ -80,12 +83,14 @@ function createBoardRenderer({ build, target, prefix }) {
       },
 
       draw(engine, options = {}) {
+        latestEngine = engine; latestOptions = options;
         if (!host) return;
         host.innerHTML = build(engine, { prefix: this._prefix, ...options });
       },
 
       /** 必须解绑：宿主会在切换关卡/关闭游戏时调用 */
       destroy() {
+        generation++; latestEngine = null; latestOptions = {};
         if (host && onClick) host.removeEventListener('click', onClick);
         if (host) host.innerHTML = '';
         host = null;
@@ -100,7 +105,7 @@ export const pinRenderer = createBoardRenderer({ build: pinBoard, target: 'pin',
 /** 拧螺丝的渲染器工厂 */
 export const screwRenderer = createBoardRenderer({ build: screwBoard, target: 'screw', prefix: 'screw' });
 
-export const metallic = ['#93b5d2', '#e8b76d', '#88b2a1', '#d98f7a', '#b29bcf', '#a6c4c5'];
+export const metallic = ['#93b5d2', '#e8b76d', '#88b2a1', '#d98f7a', '#b29bcf', '#a6c4c5', '#e5a4af', '#c1cf82'];
 function defs(prefix) {
   return `<defs>
     <linearGradient id="${prefix}-jungle" x2="0" y2="1"><stop stop-color="#1c4a43"/><stop offset="1" stop-color="#102c30"/></linearGradient>
@@ -115,7 +120,7 @@ function defs(prefix) {
     <pattern id="${prefix}-grain" width="90" height="45" patternUnits="userSpaceOnUse"><path d="M0 10q22-8 46-2t44-2M0 34q28-11 51-3t39-2M15 20h45" fill="none" stroke="#6c472520" stroke-width="1.4"/></pattern>
     <pattern id="${prefix}-grid" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0H0v25" fill="none" stroke="#93b0b511" stroke-width="1"/></pattern>
     <filter id="${prefix}-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#0c1d22" flood-opacity=".4"/></filter>
-    ${metallic.map((color, i) => `<linearGradient id="${prefix}-plate-${i}" x2="0" y2="1"><stop stop-color="${color}"/><stop offset=".13" stop-color="${color}"/><stop offset=".4" stop-color="${color}"/><stop offset="1" stop-color="${['#567c9d', '#b07d3f', '#4d7f6d', '#a95e51', '#7e639c', '#638c90'][i]}"/></linearGradient>`).join('')}
+    ${metallic.map((color, i) => `<linearGradient id="${prefix}-plate-${i}" x2="0" y2="1"><stop stop-color="${color}"/><stop offset=".13" stop-color="${color}"/><stop offset=".4" stop-color="${color}"/><stop offset="1" stop-color="${['#567c9d', '#b07d3f', '#4d7f6d', '#a95e51', '#7e639c', '#638c90', '#a5667c', '#839c51'][i]}"/></linearGradient>`).join('')}
   </defs>`;
 }
 function explorer(x, y, won, lost) {
@@ -147,9 +152,10 @@ function foliage() {
 export function pinBoard(engine, { prefix = 'pin-main', decorative = false, highlight = null } = {}) {
   const hot = engine.hot, drained = engine.drained, won = engine.status === 'won', lost = engine.status === 'lost';
   const water = !engine.removed.has('water');
+  const chapter = Math.floor((engine.level || 0) / 2);
   const chamber = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="#0c2229"/><rect x="${x + 3}" y="${y + 4}" width="${w - 6}" height="${h - 6}" rx="7" fill="url(#${prefix}-room)" stroke="#e1cb9133"/>`;
   return `<div class="scene temple-scene ${lost ? 'scene-failed' : ''}"><svg viewBox="0 0 480 420" aria-hidden="true">${defs(prefix)}
-    <rect width="480" height="420" fill="url(#${prefix}-jungle)"/>${foliage()}
+    <rect width="480" height="420" fill="url(#${prefix}-jungle)"/><rect width="480" height="420" fill="${['#285b45', '#3e486e', '#735242', '#31626b'][chapter % 4]}" opacity=".3"/>${foliage()}
     <ellipse cx="240" cy="400" rx="191" ry="15" fill="#061e2477"/>
     <g filter="url(#${prefix}-shadow)"><path d="M31 42 55 18H421L449 42V389H31z" fill="#716546"/><rect x="38" y="35" width="404" height="349" rx="12" fill="url(#${prefix}-stone)"/><path d="M53 37H425M40 70V364" fill="none" stroke="#ead9a6" stroke-width="4" opacity=".5"/>
     <path d="M36 85h21m-21 77h21m-21 79h21m-21 78h21m365-236h22m-22 79h22m-22 79h22m-22 78h22" stroke="#665e4455" stroke-width="3"/>
@@ -169,6 +175,8 @@ export function pinBoard(engine, { prefix = 'pin-main', decorative = false, high
     ${explorer(337, 335, won, lost)}${won ? gem(292, 340, prefix, .8) + gem(382, 334, prefix, 1) : ''}
     <g fill="#dbca97" font-family="system-ui" font-size="8" letter-spacing="1.5" opacity=".7"><text x="132" y="72" text-anchor="middle">${t('game.pins.canvasWater')}</text><text x="132" y="190" text-anchor="middle">${t(hot ? 'game.pins.canvasLava' : 'game.pins.canvasStone')}</text><text x="337" y="190" text-anchor="middle">${t('game.pins.canvasTreasure')}</text></g>
     </g>
+    ${engine.config.ventBlockedBySpider && engine.spider ? `<path d="M315 43h45m-43-5 40 15m-34-18 23 19" stroke="#d5cbdc" stroke-width="1.5" opacity=".85"/>` : ''}
+    ${engine.config.bridgeBeforeDrain ? `<path d="M222 350v-12m25 12v-12M218 349h34" stroke="#74dbd7" stroke-width="4"/>` : ''}
     ${decorative ? engine.config.pins.map(pin => { const p = PIN_POINTS[pin]; return `<g transform="translate(${p.x} ${p.y})"><rect y="-4" width="${p.width - 14}" height="8" rx="3" fill="url(#${prefix}-gold)" stroke="#8e6e34"/><circle cx="${p.width - 14}" r="12" fill="url(#${prefix}-gold)" stroke="#8e6e34" stroke-width="3"/><circle cx="${p.width - 14}" r="5" fill="#4b5541"/></g>`; }).join('') : ''}
     ${won ? '<g fill="#f1d77f"><path d="M101 47l3 7 7 3-7 3-3 7-3-7-7-3 7-3zM409 283l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></g>' : ''}
     </svg>${decorative ? '' : [...engine.config.pins].sort((a, b) => PIN_POINTS[a].y - PIN_POINTS[b].y || PIN_POINTS[a].x - PIN_POINTS[b].x).map(pin => { const p = PIN_POINTS[pin], removed = engine.removed.has(pin); return `<button class="temple-pin ${removed ? 'pin-pulled' : ''} ${highlight === pin ? 'hint-glow' : ''}" data-pin="${pin}" style="left:${p.x / 480 * 100}%;top:${p.y / 420 * 100}%;width:${p.width / 480 * 100}%" ${removed || engine.status !== 'playing' ? 'disabled' : ''} aria-label="${pinLabel(pin)}"><b>${pinLabel(pin)}</b><span class="pin-ring">↗</span></button>`; }).join('')}
@@ -196,7 +204,7 @@ export function screwBoard(engine, { prefix = 'screw-main', decorative = false, 
     ${Array.from({ length: capacity }, (_, i) => { const x = left + i * 48 + 24; return `<rect x="${x - 18}" y="28" width="36" height="32" rx="8" fill="#152b34" stroke="${i < engine.slots.length ? '#cfcbb1' : '#6b817c'}" stroke-width="1.2"/>${i < engine.slots.length ? screwHead(x, 43, prefix, 10) : `<circle cx="${x}" cy="44" r="5" fill="none" stroke="#65817a77" stroke-dasharray="2 3"/>`}`; }).join('')}
     ${engine.plates.filter(p => !p.fallen || p.id === falling).map(p => `<g class="${p.id === falling ? 'falling-plate' : ''}" style="--angle:${p.angle}deg" transform="translate(${p.x} ${p.y}) rotate(${p.angle})" filter="url(#${prefix}-shadow)">
       <rect x="${-p.width / 2}" y="-22" width="${p.width}" height="60" rx="13" fill="${['#3f627e', '#926b36', '#3f6c5d', '#905145', '#695381', '#486d72'][p.id]}"/>
-      <rect x="${-p.width / 2}" y="-30" width="${p.width}" height="60" rx="13" fill="url(#${prefix}-plate-${p.id})" stroke="#e5e7cb55" stroke-width="1.5"/>
+      <rect x="${-p.width / 2}" y="-30" width="${p.width}" height="60" rx="13" fill="url(#${prefix}-plate-${p.id % metallic.length})" stroke="#e5e7cb55" stroke-width="1.5"/>
       <path d="M${-p.width / 2 + 13}-25h${p.width - 26}" stroke="#ffffe866" stroke-width="2.5" stroke-linecap="round"/>
       <path d="M${-p.width / 2 + 17} 21h${p.width - 34}" stroke="#233e4744" stroke-width="1.4"/>
       <g stroke="#f7f3d514" stroke-width=".6">${Array.from({ length: 6 }, (_, i) => `<path d="M${-p.width / 2 + 15} ${i * 6 - 17}h${p.width - 30}"/>`).join('')}</g>

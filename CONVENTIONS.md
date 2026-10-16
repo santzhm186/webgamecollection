@@ -64,7 +64,7 @@ docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 | --- | --- | --- | --- |
 | **1** | **零运行时依赖，不引入打包器** | 没有供应链攻击面；首屏成本可控；clone 即跑 | 人工 review（新增依赖需单独论证） |
 | **2** | **依赖单向向下**：`games → 契约 → 适配器`，禁止反向 | 反向依赖会让渲染层认识规则层，最终谁也不敢改 | T5 / T6 |
-| **3** | **游戏只能 import 三个位置**：自己的文件、`src/core/host-surface.js`、`src/ui/scene/primitives.js` | 否则边界会一点点烂掉（今天 import i18n，明天直接读 localStorage） | T5 |
+| **3** | **游戏只能 import 四个位置**：自己的文件、`src/core/host-surface.js`、`src/ui/scene/primitives.js`、`src/ui/scene/three-models.js` | 否则边界会一点点烂掉（今天 import i18n，明天直接读 localStorage） | T5 |
 | **4** | **引擎不碰 DOM**（`document` / `window` / `localStorage` / `rAF` 全禁） | 这是能在 Node 里穷举玩法正确性的唯一前提 | T5（规则约束）+ 游戏测试 |
 | **5** | **渲染器无状态**，`destroy()` 必须解绑 | 有状态渲染器会在换关/重开时画旧数据；漏解绑会累积泄漏 | T6 + 人工 review |
 | **6** | **面向玩家的字符串必须有文案键**，禁止硬编码 | 否则加语言必漏翻译 | T4（扫描 JS 与 HTML） |
@@ -77,11 +77,11 @@ docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 
 ## 3. 命名规范
 
-**一句话原则：字符串键用 camelCase；其余一切用 kebab-case；导出用具名导出。**
+**一句话原则：字符串键用 camelCase（game 的第二段保留 kebab-case 游戏 id）；其余一切用 kebab-case；导出用具名导出。**
 
 | 类别 | 规范 | 示例 | 反例 |
 | --- | --- | --- | --- |
-| 文案键 | `<area>.<subject>[.<detail>]`，段内 camelCase，最多四段 | `dialog.assistGoalRunner` | `dialog-assist-goal-runner` |
+| 文案键 | `<area>.<subject>[.<detail>]`，段内 camelCase，最多四段；`game.water-sort.*` 的游戏 id 保留连字符 | `dialog.assistGoalRunner` | `dialog-assist-goal-runner` |
 | 游戏 id | kebab-case，**发布后不可改** | `runner` · `my-game` | `MyGame` · `my_game` |
 | 枚举**成员名** | SCREAMING_SNAKE | `LOCAL_MULTI` | `localMulti` |
 | 枚举**值** | kebab-case 字符串 | `'local-multi'` | `'localMulti'` |
@@ -210,6 +210,8 @@ export const dictionaryKeys = Object.freeze([...Object.values(PIN_LABEL_KEYS)]);
 | **本地榜必须诚实标注** | 纯静态下只有自己一条记录，UI 不得假装有他人排名 |
 | **进度键位由注册表驱动** | 新增游戏自动获得进度槽位，不必改 `app.mjs` |
 
+v0.3 共 6 款游戏、38 关、114 星；新增关卡只追加，旧索引保持不变。`assistGoal()` 与 `canUndo()` 是可选引擎能力，宿主优先采用。3D 定义见 [资产说明](src/models/README.md)。
+
 **当前存储键（P1 收口前）**：`wande-dao-progress-v2` · `wande-dao-completed`（旧版迁移）·
 `wande-dao-sound` · `wande-dao-locale`。迁移规则见 [迁移映射](docs/MIGRATION-MAP.md) §5。
 
@@ -246,7 +248,7 @@ export const dictionaryKeys = Object.freeze([...Object.values(PIN_LABEL_KEYS)]);
 
 **改约定时必须同时改文档与测试** —— 否则 CI 会失败，这正是设计意图（见 [决策 D15](docs/DECISIONS.md)）。
 
-当前共 84 项测试：字典与约定 29 · 注册表与会话 14 · 文档 4 · 注册表加载 4 · 宿主交互 6 · 玩法 12 · 模板 11 · 冲关输入 4。具体项数以 `npm test` 输出为准。
+P3 基线共 84 项测试（v0.3 已增加新游戏、模型与宿主回归用例）：字典与约定 29 · 注册表与会话 14 · 文档 4 · 注册表加载 4 · 宿主交互 6 · 玩法 12 · 模板 11 · 冲关输入 4。具体项数以 `npm test` 输出为准。
 
 ---
 
@@ -323,6 +325,6 @@ export const dictionaryKeys = Object.freeze([...Object.values(PIN_LABEL_KEYS)]);
 | P6 资源外置（ResourceManager、模型、音频文件） | ⏳ 未开始 |
 | P7 入口收口（hash 路由、构建期生成 `games/index.js`） | ⏳ 未开始 |
 | 多人游玩 | **仅预留**，不在近期范围内 |
-| 3D / 共享实体库 | 目录与契约已备，未实现 |
+| 3D / 共享实体库 | ✅ v0.3 已有 14 个可复用模型、GLB 导出、共享 Three.js 精灵与交互预览；动画骨骼/资源管理器未实现 |
 
 完整阶段计划与验收标准见 [迁移映射](docs/MIGRATION-MAP.md)。开放问题见 [决策记录](docs/DECISIONS.md) 末尾。

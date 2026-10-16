@@ -22,6 +22,9 @@ export const MODULES = [
   function loadRunner() { return import('./runner/manifest.js'); },
   function loadPins() { return import('./pins/manifest.js'); },
   function loadScrews() { return import('./screws/manifest.js'); },
+  function loadWaterSort() { return import('./water-sort/manifest.js'); },
+  function loadWarehouse() { return import('./warehouse/manifest.js'); },
+  function loadShooter() { return import('./shooter/manifest.js'); },
 ];
 
 export default MODULES;

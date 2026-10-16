@@ -189,6 +189,9 @@ function renderCards() {
     const node = template.content.firstElementChild.cloneNode(true);
     node.dataset.game = manifest.id;
     node.dataset.category = manifest.category;
+    node.querySelector('.new-badge').hidden = !manifest.isNew;
+    const clearedLevels = progress[manifest.id].filter(record => record.stars > 0).length;
+    node.querySelector('.card-progress i').style.width = `${clearedLevels / manifest.levelCount * 100}%`;
     // 搜索索引包含**所有语言**的名称 + id + 标签：
     // 中文界面下搜 "unscrew"、英文界面下搜 "螺丝" 都应该能找到 ——
     // 玩家不记得当前界面用的是哪种语言。
@@ -225,6 +228,10 @@ function homeProgress() {
     n: `<strong id="completed-count">${cleared}</strong>`,
     total: registry.size,
   });
+  $('#nav-game-count').textContent = String(registry.size).padStart(2, '0');
+  $('#library-game-count').textContent = String(registry.size).padStart(2, '0');
+  $('#library-level-count').textContent = Object.values(levelCounts).reduce((sum, n) => sum + n, 0);
+  $('#library-star-count').textContent = Object.values(progress).flat().length * STAR.MAX;
   const stars = Object.values(progress).flat().reduce((sum, record) => sum + record.stars, 0);
   $('#star-count').textContent = t('progress.stars', { n: stars, total: Object.values(progress).flat().length * STAR.MAX });
 }
@@ -366,7 +373,7 @@ async function mountLevel(manifest, level) {
   // 需要"开始"的游戏才显示开始按钮（引擎实现了 start）
   const needsStart = typeof session.engine.start === 'function';
   startButton.hidden = !needsStart;
-  startButton.innerHTML = `${t('dialog.startRunner')} <span>→</span>`;
+  startButton.innerHTML = `${t('dialog.start')} <span>→</span>`;
   $('#hint-button').hidden = typeof session.engine.hint !== 'function';
   $('#undo-button').hidden = typeof session.engine.undo !== 'function';
   $('.helper-tools > span').textContent = assistGoal(session.engine);
@@ -379,11 +386,13 @@ async function mountLevel(manifest, level) {
   session.renderer.mount(area, session.engine, session.ctx);
   session.renderer.setReducedMotion?.(motion.matches);
   renderPicker(manifest, level);
+  dialog.scrollTop = 0;
   updateStatus(true);
 }
 
 /** 辅助目标说明：按引擎能力拼装，不写死游戏名 */
 function assistGoal(engine) {
+  if (typeof engine.assistGoal === 'function') return engine.assistGoal();
   if (engine.config?.stars) return t('dialog.assistGoalRunner', { n: engine.config.stars[2] });
   if (typeof engine.undo === 'function') return t('dialog.assistGoalScrews');
   if (typeof engine.hint === 'function') return t('dialog.assistGoalPins');
@@ -450,14 +459,20 @@ function updateStatus(force = false) {
   if (force || status.textContent !== text) status.textContent = text;
   status.classList.toggle('fail', engine.status === ENGINE_STATUS.LOST);
 
-  $('#hint-button').disabled = engine.status !== ENGINE_STATUS.PLAYING;
-  $('#undo-button').disabled = ![ENGINE_STATUS.PLAYING, ENGINE_STATUS.LOST].includes(engine.status)
-    || (typeof engine.undos === 'number' && engine.undos >= 1)
-    || (Array.isArray(engine.history) && !engine.history.length);
+  $('#hint-button').disabled = active.paused || engine.status !== ENGINE_STATUS.PLAYING;
+  $('#undo-button').disabled = active.paused || ![ENGINE_STATUS.PLAYING, ENGINE_STATUS.LOST].includes(engine.status)
+    || (typeof engine.canUndo === 'function' ? !engine.canUndo()
+      : (typeof engine.undos === 'number' && engine.undos >= 1)
+        || (Array.isArray(engine.history) && !engine.history.length));
 
   const fields = typeof engine.hud === 'function' ? engine.hud() : [];
-  $('#game-hud').innerHTML = fields.map(({ label, value, tone }) =>
+  const markup = fields.map(({ label, value, tone }) =>
     `<div class="${tone && tone !== HUD_TONE.NORMAL ? `hud-${TONE_CLASS[tone]}` : ''}"><small>${label}</small><strong>${value}</strong></div>`).join('');
+  if (active.hudMarkup !== markup) {
+    $('#game-hud').style.setProperty('--hud-columns', Math.min(4, Math.max(1, fields.length)));
+    $('#game-hud').innerHTML = markup;
+    active.hudMarkup = markup;
+  }
 }
 
 /**
@@ -532,6 +547,7 @@ function togglePause() {
   if (!active) return;
   if (!active.session.togglePause()) return;
   active.paused = active.session.paused;
+  active.session.renderer.draw(active.session.engine);
   const button = area.querySelector('.runner-pause');
   if (button) {
     button.textContent = t(active.paused ? 'dialog.resume' : 'dialog.pause');
@@ -546,13 +562,13 @@ function togglePause() {
 /* ============================================================ 顶部按钮 */
 
 $('#hint-button').addEventListener('click', () => {
-  if (!active) return;
+  if (!active || active.paused) return;
   active.highlight = active.session.hint();
   active.session.renderer.draw(active.session.engine, { highlight: active.highlight });
   updateStatus(true);
 });
 $('#undo-button').addEventListener('click', () => {
-  if (!active?.session.undo()) return;
+  if (!active || active.paused || !active.session.undo()) return;
   active.highlight = null;
   $('#result-panel').hidden = true;
   nextButton.hidden = true;
@@ -569,6 +585,7 @@ startButton.addEventListener('click', () => {
   active.session.renderer.draw(active.session.engine);
   updateStatus(true);
   settle(active.session.poll());
+  dialog.scrollTop = 0;
   // 调试出口：排查"点了开始但画面不动"这类问题时会用到
   // （浏览器控制台执行 __dsh.debug() 可看到当前会话状态）
   if (active.session.timeDriven) frame = requestAnimationFrame(animate);
@@ -685,7 +702,7 @@ function onLanguageChanged() {
     difficulty: difficultyLabel(active.session.engine.config?.difficulty),
   });
   $('.helper-tools > span').textContent = assistGoal(active.session.engine);
-  startButton.innerHTML = `${t(active.session.status === ENGINE_STATUS.READY ? 'dialog.startRunner' : 'dialog.again')} <span>${active.session.status === ENGINE_STATUS.READY ? '→' : '↻'}</span>`;
+  startButton.innerHTML = `${t(active.session.status === ENGINE_STATUS.READY ? 'dialog.start' : 'dialog.again')} <span>${active.session.status === ENGINE_STATUS.READY ? '→' : '↻'}</span>`;
   renderPicker(active.manifest, active.level);
   updateStatus(true);
 }

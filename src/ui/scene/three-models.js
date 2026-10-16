@@ -1,205 +1,152 @@
-/**
- * 3D 渲染与降级模块。
- * ============================================================================
- * 此模块负责尝试加载 Three.js 并进行 3D 模型渲染。
- * 遵循项目原则：如果加载失败或环境不支持，则静默降级为 false 状态，
- * 调用方应当在此时回退到原生 2D 绘制逻辑。
- */
+/** Shared model definitions drive both in-game sprites and portable GLB assets. */
+import { MATERIALS, MODELS } from '../../models/arcade-kit.js';
 
-let THREE = null;
-let initialized = false;
+let three = null;
+let initialization = null;
 let support3D = false;
 let renderer = null;
 let scene = null;
 let camera = null;
-
-// 缓存已经生成的 Sprite 图像，避免重复渲染
+let renderQueue = Promise.resolve();
 const spriteCache = new Map();
+const pendingSprites = new Map();
 
-/**
- * 尝试初始化 3D 模块。
- * @returns {Promise<boolean>} 是否成功支持 3D
- */
-export async function init3DModels() {
-  if (initialized) return support3D;
-  initialized = true;
+/** Pure factory: accepts a Three namespace so the same geometry also runs in Node. */
+export function createAssetModel(THREE, id, color) {
+  const definition = MODELS[id];
+  if (!definition) return null;
+  const constructors = {
+    box: THREE.BoxGeometry,
+    cylinder: THREE.CylinderGeometry,
+    sphere: THREE.SphereGeometry,
+    torus: THREE.TorusGeometry,
+  };
+  const group = new THREE.Group();
+  group.name = id;
+  group.userData = { assetId: id, labelKey: definition.labelKey, name: definition.name, category: definition.category, reuse: definition.reuse };
+  for (const node of definition.nodes) {
+    const Geometry = constructors[node.shape];
+    const materialSpec = MATERIALS[node.material];
+    if (!Geometry || !materialSpec) throw new TypeError(`Invalid model node: ${id}/${node.name}`);
+    const { tintable, doubleSided, ...parameters } = materialSpec;
+    const material = new THREE.MeshStandardMaterial({
+      ...parameters,
+      color: color && tintable ? color : materialSpec.color,
+      transparent: materialSpec.transparent ?? (materialSpec.opacity < 1),
+      side: doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+    });
+    material.name = node.material;
+    const mesh = new THREE.Mesh(new Geometry(...node.args), material);
+    mesh.name = node.name;
+    mesh.position.fromArray(node.position ?? [0, 0, 0]);
+    mesh.rotation.set(...(node.rotation ?? [0, 0, 0]));
+    mesh.scale.fromArray(node.scale ?? [1, 1, 1]);
+    group.add(mesh);
+  }
+  return group;
+}
 
-  try {
-    // 动态引入 three.js，如果因为未 install 或网络问题导致导入失败，会自动抛出异常
-    THREE = await import('three');
-
-    // 尝试创建离屏 WebGL 渲染器
+/** Concurrent callers share initialization; unsupported devices keep the 2D fallback. */
+export function init3DModels() {
+  if (initialization) return initialization;
+  initialization = (async () => {
     try {
-      // 在浏览器环境尝试使用 OffscreenCanvas
-      const canvas = typeof OffscreenCanvas !== 'undefined'
-        ? new OffscreenCanvas(256, 256)
-        : document.createElement('canvas');
-
-      if (!canvas.getContext) {
-          throw new Error('Canvas not supported');
-      }
-
-      renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        alpha: true,
-        antialias: true,
-      });
-      renderer.setSize(256, 256);
-
-      scene = new THREE.Scene();
-
-      // 设置基础光照
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambientLight);
-
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight.position.set(10, 20, 10);
-      scene.add(dirLight);
-
-      camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-      camera.position.set(0, 0, 5);
-
+      three = await import('../../../public/lib/three.mjs');
+      const canvas = typeof document !== 'undefined' ? document.createElement('canvas')
+        : typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(256, 256) : null;
+      if (!canvas?.getContext) return false;
+      renderer = new three.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(256, 256, false);
+      renderer.setClearColor(0x000000, 0);
+      scene = new three.Scene();
+      scene.add(new three.AmbientLight(0xffffff, 2.2));
+      const key = new three.DirectionalLight(0xfff0d5, 3.2);
+      key.position.set(4, 7, 6);
+      scene.add(key);
+      const rim = new three.DirectionalLight(0x9ce9f0, 2);
+      rim.position.set(-4, 3, -2);
+      scene.add(rim);
+      camera = new three.PerspectiveCamera(35, 1, 0.01, 100);
       support3D = true;
-    } catch (e) {
-      console.warn('3D renderer creation failed, falling back to 2D:', e);
+    } catch (error) {
+      console.warn('[models] 3D renderer unavailable:', error?.message);
+      renderer?.dispose();
+      renderer = null;
       support3D = false;
     }
-  } catch (e) {
-    console.warn('Three.js failed to load, falling back to 2D:', e);
-    support3D = false;
-  }
-
-  return support3D;
+    return support3D;
+  })();
+  return initialization;
 }
 
-/**
- * 是否支持 3D 渲染（供调用方同步检查）。
- * @returns {boolean}
- */
-export function is3DSupported() {
-  return support3D;
+export function is3DSupported() { return support3D; }
+
+function disposeModel(model) {
+  model.traverse(node => {
+    node.geometry?.dispose();
+    if (Array.isArray(node.material)) node.material.forEach(material => material.dispose());
+    else node.material?.dispose();
+  });
 }
 
-/**
- * 渲染一个模型为图像。
- * @param {THREE.Object3D} model
- * @param {string} cacheKey
- * @param {number} size
- * @returns {Promise<HTMLImageElement | null>}
- */
-async function renderModelToImage(model, cacheKey, size = 256) {
-  if (!support3D) return null;
-  if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
-
-  // 清理场景
-  while(scene.children.length > 2){
-    scene.remove(scene.children[scene.children.length - 1]);
-  }
-
+async function renderAsset(id, color, resolution, yaw) {
+  const model = createAssetModel(three, id, color);
+  if (!model) return null;
+  model.rotation.y = yaw;
   scene.add(model);
-
-  // 调整相机
-  const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  const maxDim = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
-
-  camera.position.set(center.x, center.y + maxDim * 0.5, center.z + maxDim * 1.5);
-  camera.lookAt(center);
-
-  renderer.setSize(size, size);
-  renderer.render(scene, camera);
-
-  // 将离屏 canvas 转换为图像，供普通的 canvas/svg 使用
-  const img = new Image();
-
-  const promise = new Promise(async (resolve) => {
-    img.onload = () => {
-      spriteCache.set(cacheKey, img);
-      resolve(img);
-    };
-    img.onerror = () => {
-      resolve(null);
-    };
-
-    try {
-      if (renderer.domElement.toDataURL) {
-        // 普通 canvas
-        img.src = renderer.domElement.toDataURL('image/png');
-      } else if (renderer.domElement.convertToBlob) {
-        // OffscreenCanvas
-        const blob = await renderer.domElement.convertToBlob({ type: 'image/png' });
+  try {
+    const bounds = new three.Box3().setFromObject(model);
+    const center = bounds.getCenter(new three.Vector3());
+    const extent = bounds.getSize(new three.Vector3());
+    const size = Math.max(extent.x, extent.y, extent.z, .1);
+    camera.position.copy(center).add(new three.Vector3(1.1, .75, 1.8).normalize().multiplyScalar(size * 2.3));
+    camera.lookAt(center);
+    renderer.setSize(resolution, resolution, false);
+    renderer.render(scene, camera);
+    const canvas = renderer.domElement;
+    let url;
+    if (typeof canvas.toDataURL === 'function') url = canvas.toDataURL('image/png');
+    else if (typeof canvas.convertToBlob === 'function') {
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      // SVG consumers need a reusable URL, including after this image has loaded.
+      url = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => { img.src = reader.result; };
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
         reader.readAsDataURL(blob);
-      } else {
-        resolve(null);
-      }
-    } catch (e) {
-      console.warn('Failed to convert 3D model to image:', e);
-      resolve(null);
-    }
-  });
-
-  return promise;
+      });
+    } else return null;
+    return await new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = url;
+    });
+  } catch (error) {
+    console.warn('[models] Sprite fallback:', id, error?.message);
+    return null;
+  } finally {
+    scene.remove(model);
+    disposeModel(model);
+  }
 }
 
-/**
- * 生成 3D 士兵模型图像。
- * 用于 runner (冲关队伍) 和 pins (探索者/小兵)
- * @param {string} color 主色调，例如 'blue' 或 '#42c8eb'
- * @returns {Promise<HTMLImageElement | null>}
- */
-export async function getSoldierSprite(color) {
-  if (!support3D) return null;
-  const cacheKey = `soldier_${color}`;
-  if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
-
-  // 构建一个 Low-Poly 风格的士兵
-  const group = new THREE.Group();
-
-  // 身体
-  const bodyGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.8, 8);
-  const material = new THREE.MeshLambertMaterial({ color: color });
-  const body = new THREE.Mesh(bodyGeo, material);
-  body.position.y = 0.4;
-  group.add(body);
-
-  // 头部
-  const headGeo = new THREE.SphereGeometry(0.35, 8, 8);
-  const headMat = new THREE.MeshLambertMaterial({ color: 0xffccaa });
-  const head = new THREE.Mesh(headGeo, headMat);
-  head.position.y = 1.0;
-  group.add(head);
-
-  return renderModelToImage(group, cacheKey, 64);
+/** Transparent 256px sprite; pending requests are deduplicated and rendered in order. */
+export async function getAssetSprite(id, color, size = 256, rotationY = 0) {
+  if (!MODELS[id] || !(await init3DModels())) return null;
+  const resolution = Number.isFinite(size) ? Math.max(16, Math.min(1024, Math.round(size))) : 256;
+  const yaw = Number.isFinite(rotationY) ? rotationY : 0;
+  const key = `${id}:${color ?? ''}:${resolution}:${yaw}`;
+  if (spriteCache.has(key)) return spriteCache.get(key);
+  if (pendingSprites.has(key)) return pendingSprites.get(key);
+  const pending = renderQueue.then(() => renderAsset(id, color, resolution, yaw)).then(image => {
+    if (image) spriteCache.set(key, image);
+    return image;
+  }).finally(() => pendingSprites.delete(key));
+  renderQueue = pending.catch(() => null);
+  pendingSprites.set(key, pending);
+  return pending;
 }
 
-/**
- * 生成 3D 金币/宝藏模型图像。
- * 用于 pins 中的宝藏。
- * @returns {Promise<HTMLImageElement | null>}
- */
-export async function getCoinSprite() {
-  if (!support3D) return null;
-  const cacheKey = 'coin';
-  if (spriteCache.has(cacheKey)) return spriteCache.get(cacheKey);
-
-  const group = new THREE.Group();
-
-  // 金币圆盘
-  const geo = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xffd700,
-    metalness: 0.8,
-    roughness: 0.2
-  });
-  const coin = new THREE.Mesh(geo, mat);
-
-  // 稍微倾斜展示立体感
-  coin.rotation.x = Math.PI / 2.5;
-  coin.rotation.z = Math.PI / 6;
-
-  group.add(coin);
-
-  return renderModelToImage(group, cacheKey, 64);
-}
+export const getSoldierSprite = color => getAssetSprite('scout-bot', color, 64);
+export const getCoinSprite = () => getAssetSprite('coin', undefined, 64);

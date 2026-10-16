@@ -17,14 +17,14 @@ export default {
   titleKey: 'game.runner.title',            // 显示名走文案字典，随语言切换
   category: 'action',
   order: '01',                              // 卡片序号（展示用，与 category 分离）
-  levelCount: 3,
+  levelCount: 5,
   preview: './public/assets/art/runner-preview.svg',
   taglineKey: 'game.runner.tagline',
   controlsKey: 'game.runner.instruction',
   cardMetaKey: 'game.runner.cardMeta',
   artLabelKey: 'game.runner.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.0.0',                   // 玩法/数值改动必须提升（成绩榜单口径）
+  engineVersion: '1.1.0',                   // 玩法/数值改动必须提升（成绩榜单口径）
   timeDriven: true,                         // 需要逐帧推进 → 宿主托管 rAF（canvas 游戏为 true）
 
   levels: () => import('./levels.js'),

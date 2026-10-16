@@ -1,6 +1,6 @@
 {
   "name": "webgamecollection",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "广告小游戏的可玩网页版合集",
@@ -9,6 +9,7 @@
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs games/_template/*.test.mjs",
     "build": "node scripts/build.mjs",
+    "models": "node scripts/build-models.mjs",
     "balance": "node scripts/balance.mjs"
   },
   "engines": {

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14382e">
+  <meta name="description" content="Original reusable low-poly characters, props, and environments for the arcade collection.">
+  <title>街机造物所 · Arcade Asset Kit</title>
+  <link rel="stylesheet" href="./gallery.css">
+  <script type="importmap">{"imports":{"three":"../../lib/three.mjs"}}</script>
+</head>
+<body>
+  <header class="gallery-header">
+    <a class="brand-link" href="../../../index.html" aria-label="返回游戏合集" data-i18n-aria="back"><span class="brand-mark" aria-hidden="true">✳</span><span data-i18n="brand">玩得到</span></a>
+    <span class="header-center" data-i18n="header">原创角色与场景组件</span>
+    <div class="header-actions"><a href="../../../index.html" class="back-link"><span aria-hidden="true">↗</span><span data-i18n="back">返回游戏合集</span></a><button type="button" id="language-button" class="language-button" aria-label="Switch to English">EN</button></div>
+  </header>
+  <main class="gallery-main">
+    <section class="gallery-intro">
+      <div><p class="eyebrow"><span></span><span data-i18n="eyebrow">ARCADE ASSET LAB · 01</span></p><h1 data-i18n="title">街机造物所<span>。</span></h1><p class="intro-copy" data-i18n="intro">同一套小小造物，走进不同的游戏。转一转、看一看，把喜欢的模型带走。</p></div>
+      <div class="intro-stats"><strong id="asset-total">14</strong><span data-i18n="totalLabel">个可复用模型</span><a class="manifest-link" href="./manifest.json" download data-i18n="downloadManifest">↓ 下载资源清单</a></div>
+    </section>
+    <div class="gallery-layout">
+      <aside class="asset-library" aria-label="模型列表" data-i18n-aria="libraryLabel">
+        <div class="library-heading"><span data-i18n="library">模型收藏</span><span id="library-count">14</span></div>
+        <div class="category-filters" id="category-filters" role="group" aria-label="按类型筛选" data-i18n-aria="filterLabel"></div>
+        <div class="asset-list" id="asset-list"></div>
+      </aside>
+      <section class="asset-detail" aria-label="模型预览" data-i18n-aria="previewLabel">
+        <div class="model-stage" id="model-stage">
+          <div class="stage-topline"><span class="live-label"><i></i><span data-i18n="live">实时 3D 预览</span></span><span class="stage-format">glTF 2.0</span></div>
+          <canvas id="model-canvas" tabindex="0" aria-label="拖动旋转模型，也可用左右方向键旋转" data-i18n-aria="canvasLabel"></canvas>
+          <div class="preview-fallback" id="preview-fallback" role="status" hidden><span aria-hidden="true">◇</span><strong data-i18n="unavailableTitle">模型预览暂不可用</strong><p data-i18n="unavailable">浏览器未启用 WebGL。你仍然可以浏览模型信息、下载 GLB 文件。</p></div>
+          <div class="stage-bottomline"><span data-i18n="dragHint">拖动旋转 · 滚轮缩放</span><button type="button" id="reset-view" class="reset-view"><span aria-hidden="true">↺</span><span data-i18n="reset">重置视角</span></button></div>
+        </div>
+        <div class="model-info">
+          <div class="model-title-row"><div><p class="model-category" id="model-category"></p><h2 id="model-name"></h2><p class="model-id" id="model-id"></p></div><a class="download-model" id="download-model" href="./cargo-bot.glb" download><span data-i18n="download">下载 GLB</span><span aria-hidden="true">↗</span></a></div>
+          <div class="model-metrics"><div><span data-i18n="parts">模型部件</span><strong id="model-parts">—</strong></div><div><span data-i18n="triangles">三角面数</span><strong id="model-triangles">—</strong></div><div><span data-i18n="size">文件大小</span><strong id="model-size">—</strong></div><div><span data-i18n="scale">坐标规范</span><strong data-i18n="scaleValue">米 · Y 轴向上</strong></div></div>
+          <div class="model-reuse"><span data-i18n="reuse">适用玩法</span><div id="model-reuse"></div></div>
+        </div>
+      </section>
+    </div>
+    <footer class="gallery-footer"><p data-i18n="footer">从角色到场景，共用一套颜色、比例与材质。模型和游戏画面来自同一份设计。</p><span data-i18n="footerTag">为更多好玩而造。</span></footer>
+  </main>
+  <script type="module" src="./gallery.js"></script>
+</body>
+</html>

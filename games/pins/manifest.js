@@ -15,14 +15,14 @@ export default {
   titleKey: 'game.pins.title',
   category: 'puzzle',
   order: '02',
-  levelCount: 6,
+  levelCount: 8,
   preview: './public/assets/art/pins-preview.svg',
   taglineKey: 'game.pins.tagline',
   controlsKey: 'game.pins.instruction',
   cardMetaKey: 'game.pins.cardMeta',
   artLabelKey: 'game.pins.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.0.0',
+  engineVersion: '1.1.0',
   timeDriven: false,          // 纯点击驱动：静止时零 CPU（宿主不托管 rAF）
 
   // P4 会改成本目录内的 ./levels.js 与 ./engine.js
@@ -31,6 +31,7 @@ export default {
   // P4 会改成本目录内的 ./render.js
   renderer: () => import('../../boards.mjs').then(module => ({ default: () => module.pinRenderer() })),
 
+  assets: () => import('./assets.js'),
   scoring: { order: 'desc', primary: 'score', allowTotal: true },
   theme: { accent: '#e7b94f' },
 };

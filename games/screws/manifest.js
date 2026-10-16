@@ -14,14 +14,14 @@ export default {
   titleKey: 'game.screws.title',
   category: 'casual',
   order: '03',
-  levelCount: 6,
+  levelCount: 8,
   preview: './public/assets/art/screws-preview.svg',
   taglineKey: 'game.screws.tagline',
   controlsKey: 'game.screws.instruction',
   cardMetaKey: 'game.screws.cardMeta',
   artLabelKey: 'game.screws.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.0.0',
+  engineVersion: '1.1.0',
   timeDriven: false,          // 纯点击驱动：静止时零 CPU
 
   // P4 会改成本目录内的 ./levels.js 与 ./engine.js
@@ -30,6 +30,7 @@ export default {
   // P4 会改成本目录内的 ./render.js
   renderer: () => import('../../boards.mjs').then(module => ({ default: () => module.screwRenderer() })),
 
+  assets: () => import('./assets.js'),
   scoring: { order: 'desc', primary: 'score', allowTotal: true },
   theme: { accent: '#88b2a1' },
 };

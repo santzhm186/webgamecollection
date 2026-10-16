@@ -12,7 +12,7 @@
  */
 import { RUNNER_LEVELS } from '../games/runner/levels.js';
 import { runnerBalance } from '../games/runner/engine.js';
-import { PIN_LEVELS, Screws, SCREW_LEVEL_META, solveScrews } from '../engine.mjs';
+import { Pins, PIN_LEVELS, Screws, SCREW_LEVEL_META, solveScrews } from '../engine.mjs';
 import { t } from '../src/core/i18n.js';
 
 /**
@@ -40,6 +40,7 @@ console.table(RUNNER_LEVELS.map((config, level) => {
 console.log('螺丝：初始棋盘可解性');
 console.table(SCREW_LEVEL_META.map((rule, level) => {
   const game = new Screws(level), solution = solveScrews(game);
+  solution?.forEach(move => game.remove(...move));
   return {
     关卡: name(rule),
     金属片: game.plates.length,
@@ -47,7 +48,22 @@ console.table(SCREW_LEVEL_META.map((rule, level) => {
     槽位: rule.capacity,
     有解: solution !== null,
     最少步数: solution?.length ?? '—',
+    三星可达: game.status === 'won' && game.stars === 3,
   };
 }));
 
-console.log(`拉针：${PIN_LEVELS.length} 关，完整操作顺序由 npm test 穷举验证。`);
+function permutations(items) {
+  if (items.length <= 1) return [items];
+  return items.flatMap((item, index) => permutations(items.filter((_, i) => i !== index)).map(rest => [item, ...rest]));
+}
+console.log('拉针：所有完整操作顺序的穷举结果');
+console.table(PIN_LEVELS.map((config, level) => {
+  const orders = permutations(config.pins);
+  let winning = 0, threeStars = 0;
+  for (const order of orders) {
+    const game = new Pins(level); order.forEach(pin => game.pull(pin));
+    if (game.status === 'won') winning++;
+    if (game.stars === 3) threeStars++;
+  }
+  return { 关卡: name(config), 全部顺序: orders.length, 安全顺序: winning, 三星顺序: threeStars };
+}));

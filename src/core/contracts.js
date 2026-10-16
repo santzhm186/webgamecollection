@@ -40,6 +40,7 @@ export const HOST_API_VERSION = '1.0.0';
  * @property {string} controlsKey   操作说明的文案键（渲染到游戏容器）
  * @property {string} [cardMetaKey] 卡片底部的补充信息（时长/关数）文案键
  * @property {string} [artLabelKey] 卡片插画按钮的无障碍标签文案键
+ * @property {boolean} [isNew]      Show the new-arrival label on the collection card.
  * @property {string[]} [tags]      搜索用关键词
  * @property {string} hostApi       兼容的宿主版本范围，如 '^1.0.0'
  * @property {string} engineVersion 玩法/数值版本。数值改动必须提升 —— 成绩库据此区分榜单口径，不可省略。
@@ -81,6 +82,8 @@ export const HOST_API_VERSION = '1.0.0';
  * 只有 status / message / stars / score / hud / metrics 是必需的；
  * 其余按玩法需要实现，宿主用 typeof 探测后决定是否显示暂停、提示、撤销按钮。
  *
+ * Optional assistGoal(): translated per-level star requirements.
+ * Optional canUndo(): authoritative availability for the undo button.
  * @typedef {Object} GameEngine
  * @property {string} gameId
  * @property {number} level
@@ -102,6 +105,8 @@ export const HOST_API_VERSION = '1.0.0';
  * // --- 辅助能力（可选，宿主据此显隐按钮并影响星级）---
  * @property {() => unknown} [hint]
  * @property {() => boolean} [undo]
+ * @property {() => boolean} [canUndo]  Whether a move can currently be undone.
+ * @property {() => string} [assistGoal] Per-level star requirements.
  */
 
 /** 引擎向宿主自述的 HUD 字段。宿主不猜任何玩法相关的数字。 */

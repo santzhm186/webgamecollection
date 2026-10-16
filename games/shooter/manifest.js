@@ -1,0 +1,23 @@
+/** Sky defense is loaded only when its card is opened. */
+export default {
+  id: 'shooter',
+  titleKey: 'game.shooter.title',
+  category: 'action',
+  order: '06',
+  isNew: true,
+  levelCount: 5,
+  preview: './public/assets/art/shooter-preview.svg',
+  taglineKey: 'game.shooter.tagline',
+  controlsKey: 'game.shooter.instruction',
+  cardMetaKey: 'game.shooter.cardMeta',
+  artLabelKey: 'game.shooter.artLabel',
+  hostApi: '^1.0.0',
+  engineVersion: '1.0.0',
+  timeDriven: true,
+  levels: () => import('./levels.js'),
+  engine: () => import('./engine.js'),
+  renderer: () => import('./render.js'),
+  assets: () => import('./assets.js'),
+  scoring: { order: 'desc', primary: 'score', allowTotal: true },
+  theme: { accent: '#66dfdf' },
+};

@@ -15,8 +15,8 @@
  *   pins    ⏳ 引擎与渲染在本文件 + boards.mjs
  *   screws  ⏳ 引擎与渲染在本文件 + boards.mjs
  *
- * 未变化的约束（tests/games.test.mjs 是安全网，迁移过程中断言一行未改）：
- *   · 本文件不得触碰 DOM —— 这是 918 种拉针顺序、6 个棋盘可解性能在 Node 里穷举的前提
+ * 未变化的约束（tests/games.test.mjs 是规则与关卡扩展的安全网）：
+ *   · 本文件不得触碰 DOM —— 所有拉针顺序与螺丝棋盘都在 Node 里验证
  *   · 星级与分数由引擎判定，宿主只存不猜
  */
 
@@ -37,6 +37,10 @@ export const PIN_LEVELS = [
   { titleKey: 'game.pins.level4', difficulty: DIFFICULTY.ADVANCED, pins: ['water', 'spider', 'treasure', 'vent', 'drain'], spider: true, gas: true },
   { titleKey: 'game.pins.level5', difficulty: DIFFICULTY.CHALLENGE, pins: ['bridge', 'water', 'treasure', 'drain'], bridge: true },
   { titleKey: 'game.pins.level6', difficulty: DIFFICULTY.CHALLENGE, pins: ['treasure', 'bridge', 'vent', 'water', 'spider', 'drain'], spider: true, gas: true, bridge: true },
+  // 蛛网封住通风口：原先独立的蜘蛛、气体现在有先后依赖。
+  { titleKey: 'game.pins.level7', introKey: 'game.pins.introWeb', difficulty: DIFFICULTY.CHALLENGE, pins: ['vent', 'water', 'treasure', 'bridge', 'drain', 'spider'], spider: true, gas: true, bridge: true, ventBlockedBySpider: true },
+  // 终局将两条依赖串联：先清蛛排气；水冷却后先架支撑桥，再排石。
+  { titleKey: 'game.pins.level8', introKey: 'game.pins.introSupport', difficulty: DIFFICULTY.CHALLENGE, pins: ['drain', 'bridge', 'treasure', 'water', 'vent', 'spider'], spider: true, gas: true, bridge: true, ventBlockedBySpider: true, bridgeBeforeDrain: true },
 ];
 
 /**
@@ -53,7 +57,7 @@ export class Pins {
     this.level = level; this.config = PIN_LEVELS[level]; this.hot = true; this.drained = false;
     this.spider = !!this.config.spider; this.gas = !!this.config.gas; this.bridge = !this.config.bridge;
     this.removed = new Set(); this.status = 'playing'; this.hints = 0; this.moves = 0; this.stars = 0; this.score = 0; this.lastPin = null;
-    this.message = this.t('game.pins.intro');
+    this.message = this.t(this.config.introKey ?? 'game.pins.intro');
   }
 
   /**
@@ -63,10 +67,10 @@ export class Pins {
   safePins() {
     if (this.status !== 'playing') return [];
     return this.config.pins.filter(pin => !this.removed.has(pin) && (
-      pin === 'vent' || (pin === 'spider' && this.hot) ||
+      (pin === 'vent' && (!this.config.ventBlockedBySpider || !this.spider)) || (pin === 'spider' && this.hot) ||
       (pin === 'water' && !this.gas && !this.spider) ||
-      (pin === 'drain' && !this.hot && !this.spider) ||
-      (pin === 'bridge' && this.drained) ||
+      (pin === 'drain' && !this.hot && !this.spider && (!this.config.bridgeBeforeDrain || this.bridge)) ||
+      (pin === 'bridge' && (this.config.bridgeBeforeDrain ? !this.hot && !this.spider && !this.gas : this.drained)) ||
       (pin === 'treasure' && this.drained && this.bridge && !this.spider && !this.gas)
     ));
   }
@@ -81,23 +85,28 @@ export class Pins {
     if (this.status !== 'playing' || this.removed.has(pin) || !this.config.pins.includes(pin)) return false;
     this.removed.add(pin); this.moves++; this.lastPin = pin;
     const fail = key => { this.status = 'lost'; this.message = this.t(key); };
-    if (pin === 'vent') { this.gas = false; this.message = this.t('game.pins.vent'); }
+    if (pin === 'vent') {
+      if (this.config.ventBlockedBySpider && this.spider) fail('game.pins.ventFailWeb');
+      else { this.gas = false; this.message = this.t('game.pins.vent'); }
+    }
     if (pin === 'spider') {
       if (!this.hot) fail('game.pins.spiderFail');
       else { this.spider = false; this.message = this.t('game.pins.spiderOk'); }
     }
     if (pin === 'water') {
       if (this.gas) fail('game.pins.waterFail');
-      else { this.hot = false; this.message = this.t('game.pins.waterOk'); }
+      else { this.hot = false; this.message = this.t(this.config.bridgeBeforeDrain ? 'game.pins.waterOkSupport' : 'game.pins.waterOk'); }
     }
     if (pin === 'drain') {
       if (this.hot) fail('game.pins.drainFailHot');
       else if (this.spider) fail('game.pins.drainFailSpider');
-      else { this.drained = true; this.message = this.t(this.config.bridge ? 'game.pins.drainOkBridge' : 'game.pins.drainOk'); }
+      else if (this.config.bridgeBeforeDrain && !this.bridge) fail('game.pins.drainFailSupport');
+      else { this.drained = true; this.message = this.t(this.config.bridge && !this.bridge ? 'game.pins.drainOkBridge' : 'game.pins.drainOk'); }
     }
     if (pin === 'bridge') {
-      if (!this.drained) fail('game.pins.bridgeFail');
-      else { this.bridge = true; this.message = this.t('game.pins.bridgeOk'); }
+      if (this.config.bridgeBeforeDrain && (this.hot || this.spider || this.gas)) fail('game.pins.bridgeFailSupport');
+      else if (!this.config.bridgeBeforeDrain && !this.drained) fail('game.pins.bridgeFail');
+      else { this.bridge = true; this.message = this.t(this.config.bridgeBeforeDrain ? 'game.pins.bridgeOkSupport' : 'game.pins.bridgeOk'); }
     }
     if (pin === 'treasure') {
       if (!this.drained || this.spider || this.gas) fail('game.pins.treasureDanger');
@@ -131,6 +140,10 @@ export const SCREW_LEVELS = [
   [{ x: 240, y: 278, angle: 0, width: 280, bolts: 3 }, { x: 193, y: 235, angle: 65, width: 240 }, { x: 287, y: 235, angle: -65, width: 240 }, { x: 240, y: 204, angle: 30, width: 265 }, { x: 240, y: 168, angle: -30, width: 265 }],
   [{ x: 240, y: 290, angle: 0, width: 295, bolts: 3 }, { x: 194, y: 238, angle: 62, width: 255 }, { x: 286, y: 238, angle: -62, width: 255 }, { x: 240, y: 185, angle: 0, width: 275, bolts: 3 }, { x: 240, y: 210, angle: -28, width: 275 }],
   [{ x: 240, y: 290, angle: 0, width: 295, bolts: 3 }, { x: 185, y: 244, angle: 65, width: 250, bolts: 3 }, { x: 295, y: 244, angle: -65, width: 250, bolts: 3 }, { x: 240, y: 215, angle: 30, width: 275 }, { x: 240, y: 181, angle: -30, width: 275 }, { x: 240, y: 155, angle: 0, width: 230, bolts: 3 }],
+  // 七片钟楼：中梁盖住两侧立柱，最上方短锁片打开交叉拆卸路线。
+  [{ x: 240, y: 300, angle: 0, width: 300, bolts: 3 }, { x: 180, y: 242, angle: 70, width: 220, bolts: 3 }, { x: 300, y: 242, angle: -70, width: 220, bolts: 3 }, { x: 240, y: 248, angle: 0, width: 290, bolts: 3 }, { x: 215, y: 190, angle: 30, width: 260 }, { x: 265, y: 190, angle: -30, width: 260 }, { x: 240, y: 140, angle: 0, width: 190, bolts: 3 }],
+  // 八片双塔：三孔立柱与两层横梁交织；先拆完整片，避免同时占用多片槽位。
+  [{ x: 240, y: 310, angle: 0, width: 310, bolts: 3 }, { x: 155, y: 250, angle: 90, width: 170, bolts: 3 }, { x: 325, y: 250, angle: 90, width: 170, bolts: 3 }, { x: 240, y: 260, angle: 0, width: 280, bolts: 3 }, { x: 186, y: 209, angle: 50, width: 245 }, { x: 294, y: 209, angle: -50, width: 245 }, { x: 240, y: 160, angle: 0, width: 275, bolts: 3 }, { x: 240, y: 119, angle: 0, width: 170, bolts: 3 }],
 ];
 
 /**
@@ -145,6 +158,8 @@ export const SCREW_LEVEL_META = [
   { titleKey: 'game.screws.level4', capacity: 3, difficulty: DIFFICULTY.ADVANCED },
   { titleKey: 'game.screws.level5', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
   { titleKey: 'game.screws.level6', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
+  { titleKey: 'game.screws.level7', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
+  { titleKey: 'game.screws.level8', capacity: 3, difficulty: DIFFICULTY.CHALLENGE },
 ];
 
 export class Screws {
@@ -223,7 +238,7 @@ export class Screws {
 /**
  * 求解器：深度优先 + 位掩码状态记忆化，寻找一条完整的拆卸顺序。
  *
- * 状态空间很小（最多 6 片 × 3 孔），所以朴素搜到底即可，不需要启发式。
+ * 状态空间很小（最多 8 片 × 3 孔），所以朴素搜到底即可，不需要启发式。
  * 两个用途：① 提示功能 ② 测试证明每个棋盘都可解（否则玩家会卡死在无解关卡）。
  * @returns {Array<[number, number]>|null} [[片 id, 孔位], …]，无解返回 null
  */

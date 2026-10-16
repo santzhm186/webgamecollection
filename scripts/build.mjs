@@ -17,6 +17,7 @@ import { mkdir, copyFile, rm, readdir, stat, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative, extname } from 'node:path';
+import { buildModels } from './build-models.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = join(root, 'dist');
@@ -59,6 +60,8 @@ async function survey(dir, out = { bytes: 0, files: 0, byExt: {} }) {
   return out;
 }
 
+// Re-export portable assets from the source that also drives runtime sprites.
+await buildModels();
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 

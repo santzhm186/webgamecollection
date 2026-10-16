@@ -184,3 +184,7 @@ export const dictionaryKeys = Object.freeze([...Object.values(PIN_LABEL_KEYS)]);
 2. **必须用真实浏览器验证。** `serve.mjs` 当时只服务 `.html/.css/.mjs` 三种后缀，
    新增的 `.js` 模块全部 404，浏览器报 `Failed to fetch dynamically imported module`，
    而 Node 侧测试全绿。渲染层的最终验证只能在浏览器里做。
+
+### v0.3：多段游戏 id
+
+`game.<id>.*` 中的第二段保留 manifest 的 kebab-case id，例如 `game.water-sort.hudTarget`。其余文案键段继续使用 camelCase。注册游戏 id 由测试读取 `games/index.js` 验证，不维护第二份游戏白名单。
