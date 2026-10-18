@@ -144,6 +144,7 @@ export const zhCN = {
   "game.pins.treasureDanger": "危险还没处理完，宝藏掉入了危险通道。",
   "game.pins.treasureNoBridge": "石桥还没放下，宝藏掉进了沟壑！",
   "game.pins.win": "探险家安全拿到了宝藏！{moves} 步完成，获得 {stars} 星。",
+  "game.pins.undone": "已撤销上一步操作。重新观察并选择安全机关。",
   "game.pins.hudPins": "机关",
   "game.pins.hudHints": "提示",
   "game.pins.hudBest": "本关最佳",

@@ -230,6 +230,18 @@ export function drawScene(ctx, state, { preview = false, clock = state.time || 0
       ctx.strokeStyle = '#fff2b5'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 6); ctx.stroke();
     }
+    if (state.phase === 'boss') {
+      for (let i = 0; i < 6; i++) {
+        const pRatio = (time * 5 + i * 0.16) % 1;
+        const sx = center + Math.sin(i * 2.1) * 28;
+        const px = sx + (240 + Math.sin(i * 1.8) * 55 - sx) * pRatio;
+        const py = 295 - pRatio * 105;
+        ctx.fillStyle = i % 2 === 0 ? '#ffea78' : '#70e5ff';
+        ctx.beginPath();
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   // HUD 与浮字（预览模式不画）

@@ -124,6 +124,10 @@ export const SFX = Object.freeze({
   WIN: 'win',           // 通关
   LOSE: 'lose',         // 失败
   FALL: 'fall',         // 物件脱落/门通过等阶段性事件
+  SHOOT: 'shoot',       // 战机射击或发射投射物
+  HIT: 'hit',           // 击中敌人或障碍物受击反馈
+  POWERUP: 'powerup',   // 获得升级强化或奖励拾取
+  POUR: 'pour',         // 液体倾倒转移
 });
 
 /** 集合视图，供契约测试与校验脚本枚举使用（避免各处 Object.values 手写）。 */

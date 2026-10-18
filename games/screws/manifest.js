@@ -1,10 +1,6 @@
 /**
  * 拧螺丝 · manifest
  * ============================================================================
- * 说明：本轮（P3）只迁移了 runner 的引擎代码；screws 的规则与渲染**暂时仍由
- * 仓库根目录的 engine.mjs / boards.mjs 提供**，通过下面的动态 import 适配。
- * P4 会把实现搬到本目录，manifest 本身不用改。
- *
  * @typedef {import('../../src/core/contracts.js').GameManifest} GameManifest
  */
 
@@ -21,14 +17,12 @@ export default {
   cardMetaKey: 'game.screws.cardMeta',
   artLabelKey: 'game.screws.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.1.0',
-  timeDriven: false,          // 纯点击驱动：静止时零 CPU
+  engineVersion: '1.2.0',
+  timeDriven: false,
 
-  // P4 会改成本目录内的 ./levels.js 与 ./engine.js
-  levels: () => import('../../engine.mjs').then(module => ({ default: module.SCREW_LEVEL_META })),
-  engine: () => import('../../engine.mjs').then(module => ({ default: module.Screws })),
-  // P4 会改成本目录内的 ./render.js
-  renderer: () => import('../../boards.mjs').then(module => ({ default: () => module.screwRenderer() })),
+  levels: () => import('./levels.js'),
+  engine: () => import('./engine.js'),
+  renderer: () => import('./render.js'),
 
   assets: () => import('./assets.js'),
   scoring: { order: 'desc', primary: 'score', allowTotal: true },

@@ -307,7 +307,9 @@ test('迁移完整性：runner 已完全离开根目录，pins/screws 仍标注�
   await assert.rejects(() => readFile(join(root, 'art.mjs'), 'utf8'), /ENOENT/, 'art.mjs 应已删除');
 
   // 游戏目录结构完整
-  for (const file of ['manifest.js', 'engine.js', 'render.js', 'levels.js', 'assets.js']) {
-    await readFile(join(root, 'games/runner', file), 'utf8');
+  for (const gameId of ['runner', 'pins', 'screws']) {
+    for (const file of ['manifest.js', 'engine.js', 'render.js', 'levels.js', 'assets.js']) {
+      await readFile(join(root, 'games', gameId, file), 'utf8');
+    }
   }
 });

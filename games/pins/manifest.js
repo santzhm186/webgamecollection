@@ -1,11 +1,6 @@
 /**
  * 拉针救人 · manifest
  * ============================================================================
- * 说明：本轮（P3）只迁移了 runner 的引擎代码；pins 的规则与渲染**暂时仍由
- * 仓库根目录的 engine.mjs / boards.mjs 提供**，通过下面的动态 import 适配。
- * 这样三个游戏立刻就能走同一套注册表与入口，而 P4 只需把实现搬到本目录，
- * manifest 本身不用改（`id` / 文案键 / 评分口径都已就位）。
- *
  * @typedef {import('../../src/core/contracts.js').GameManifest} GameManifest
  */
 
@@ -22,14 +17,12 @@ export default {
   cardMetaKey: 'game.pins.cardMeta',
   artLabelKey: 'game.pins.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.1.0',
-  timeDriven: false,          // 纯点击驱动：静止时零 CPU（宿主不托管 rAF）
+  engineVersion: '1.2.0',
+  timeDriven: false,
 
-  // P4 会改成本目录内的 ./levels.js 与 ./engine.js
-  levels: () => import('../../engine.mjs').then(module => ({ default: module.PIN_LEVELS })),
-  engine: () => import('../../engine.mjs').then(module => ({ default: module.Pins })),
-  // P4 会改成本目录内的 ./render.js
-  renderer: () => import('../../boards.mjs').then(module => ({ default: () => module.pinRenderer() })),
+  levels: () => import('./levels.js'),
+  engine: () => import('./engine.js'),
+  renderer: () => import('./render.js'),
 
   assets: () => import('./assets.js'),
   scoring: { order: 'desc', primary: 'score', allowTotal: true },

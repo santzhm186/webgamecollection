@@ -43,9 +43,13 @@
 }
 .water-sort-tube svg { display: block; width: 100%; max-width: 110px; overflow: visible; filter: drop-shadow(0 7px 10px #00131d50); }
 .water-sort-tube:hover:not(:disabled) { background: #d2f0e60c; transform: translateY(-4px); }
-.water-sort-tube.is-selected { transform: translateY(-12px); background: #aceed418; border-color: #a9ebd680; }
-.water-sort-tube.is-selected:hover { transform: translateY(-12px); }
-.water-sort-tube.is-hinted { background: #ffe6a316; border-color: #f8d67b99; }
+.water-sort-tube.is-selected { transform: translateY(-14px) rotate(-5deg); background: #aceed418; border-color: #a9ebd680; }
+.water-sort-tube.is-selected:hover { transform: translateY(-14px) rotate(-5deg); }
+.water-sort-tube.is-hinted { background: #ffe6a316; border-color: #f8d67b99; animation: hintPulse 1.2s ease-in-out infinite; }
+@keyframes hintPulse {
+  0%, 100% { border-color: #f8d67b99; box-shadow: 0 0 6px #f8d67b44; }
+  50% { border-color: #ffe6a3; box-shadow: 0 0 14px #f8d67b88; }
+}
 .water-sort-tube:focus-visible { outline: 3px solid #ffdc88; outline-offset: 3px; }
 .water-sort-tube:disabled { cursor: default; opacity: 1; }
 .water-sort-tube-number { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%; border: 1px solid #ffffff26; background: #081e29a0; color: #d4e5e5; font-size: 11px; font-variant-numeric: tabular-nums; }

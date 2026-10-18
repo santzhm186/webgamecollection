@@ -74,13 +74,15 @@ test('文档：阶段状态与代码事实一致（防止"待实现"说谎）', 
   assert.match(conventions, /P3[^\n]*已完成|P3 宿主框架 \+ runner 迁移 \| ✅/,
     'CONVENTIONS 应把 P3 标为已完成');
 
-  // ── P4：pins/screws 尚未迁移 → 文档必须仍标注为待办，且过渡文件仍在
+  // ── P4：pins/screws 已迁移至各自目录
   for (const id of ['pins', 'screws']) {
     assert.ok(existsSync(join(root, 'games', id, 'manifest.js')), `${id} 的 manifest 应已就位`);
-    assert.ok(!existsSync(join(root, 'games', id, 'engine.js')), `${id} 的引擎尚未迁移（P4 才做）`);
+    assert.ok(existsSync(join(root, 'games', id, 'engine.js')), `${id} 的引擎应已迁移`);
+    assert.ok(existsSync(join(root, 'games', id, 'render.js')), `${id} 的渲染器应已迁移`);
+    assert.ok(existsSync(join(root, 'games', id, 'levels.js')), `${id} 的关卡应已迁移`);
   }
-  assert.ok(existsSync(join(root, 'engine.mjs')), 'engine.mjs 在 P4 前必须仍然存在');
-  assert.match(conventions, /P4[^\n]*⏳/, 'CONVENTIONS 应把 P4 标为未开始');
+  assert.ok(existsSync(join(root, 'engine.mjs')), 'engine.mjs 作为过渡兼容桥梁仍保留');
+  assert.match(conventions, /P4[^\n]*已完成|P4[^\n]*✅/, 'CONVENTIONS 应把 P4 标为已完成');
   assert.match(migration, /P4/, 'MIGRATION-MAP 必须有 P4 相关记录');
 
   // ── 多人：仅预留、未实现（T7 也校验这一点，这里是文档侧的对应检查）

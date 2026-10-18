@@ -91,7 +91,16 @@ export function drawScene(ctx, engine, reducedMotion = false, sprites = {}) {
   if (!reducedMotion) for (const effect of engine.effects) {
     const p = project(effect.x, effect.z), age = (engine.frame - effect.at) / 24;
     ctx.strokeStyle = effect.kind === 'crate' ? '#d4ffbf' : '#ffd097'; ctx.globalAlpha = 1 - age;
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, 12 + age * 30, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, 12 + age * 30, 0, Math.PI * 2); ctx.stroke();
+    for (let k = 0; k < 6; k++) {
+      const angle = (k / 6) * Math.PI * 2 + effect.at;
+      const dist = 8 + age * 36;
+      ctx.fillStyle = effect.kind === 'crate' ? '#a5f782' : '#ff9955';
+      ctx.beginPath();
+      ctx.arc(p.x + Math.cos(angle) * dist, p.y + Math.sin(angle) * dist, Math.max(1, 3 * (1 - age)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
   const player = project(engine.x, .9);
   if (engine.shield) { ctx.strokeStyle = '#82ebecaa'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(player.x, player.y, 42, 39, 0, 0, Math.PI * 2); ctx.stroke(); }

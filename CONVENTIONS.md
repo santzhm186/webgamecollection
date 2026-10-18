@@ -320,7 +320,7 @@ P3 基线共 84 项测试（v0.3 已增加新游戏、模型与宿主回归用�
 | P0 契约层 + 存储端口 | ✅ 已定义；⏳ 适配器与 `ScoreStore` / `ProgressStore` 未实现 |
 | P3 宿主框架 + runner 迁移 | ✅ 已完成（注册表、会话、84 项测试、浏览器验收通过） |
 | P1 存储收口（5 处 `localStorage` 改走适配器） | ⏳ 未开始 |
-| P4 pins / screws 搬入各自目录，删除 `engine.mjs` 与 `boards.mjs` | ⏳ 未开始（manifest 已就位） |
+| P4 pins / screws 搬入各自目录，消除单体逻辑 | ✅ 已完成（已独立为子模块并保留兼容桥） |
 | P5 排行榜 | ⏳ 未开始（排名算法与口径已设计） |
 | P6 资源外置（ResourceManager、模型、音频文件） | ⏳ 未开始 |
 | P7 入口收口（hash 路由、构建期生成 `games/index.js`） | ⏳ 未开始 |

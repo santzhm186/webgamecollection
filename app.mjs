@@ -121,11 +121,68 @@ function playTone(type = 'click') {
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state === 'suspended') audio.resume().catch(() => {});
+    const now = audio.currentTime;
+
+    if (type === 'shoot') {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.08);
+      gain.gain.setValueAtTime(0.035, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain); gain.connect(audio.destination);
+      osc.start(now); osc.stop(now + 0.08);
+      return;
+    }
+
+    if (type === 'hit') {
+      const osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.09);
+      gain.gain.setValueAtTime(0.045, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.connect(gain); gain.connect(audio.destination);
+      osc.start(now); osc.stop(now + 0.09);
+      return;
+    }
+
+    if (type === 'powerup') {
+      const notes = [440, 554, 659, 880];
+      notes.forEach((hz, i) => {
+        const osc = audio.createOscillator(), gain = audio.createGain(), at = now + i * 0.055;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(hz, at);
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(0.035, at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.12);
+        osc.connect(gain); gain.connect(audio.destination);
+        osc.start(at); osc.stop(at + 0.13);
+      });
+      return;
+    }
+
+    if (type === 'pour') {
+      const notes = [380, 440, 520];
+      notes.forEach((hz, i) => {
+        const osc = audio.createOscillator(), gain = audio.createGain(), at = now + i * 0.04;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(hz, at);
+        osc.frequency.linearRampToValueAtTime(hz + 60, at + 0.04);
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(0.03, at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.06);
+        osc.connect(gain); gain.connect(audio.destination);
+        osc.start(at); osc.stop(at + 0.07);
+      });
+      return;
+    }
+
     const notes = type === 'win' ? [523, 659, 784, 1047]
       : type === 'fall' ? [440, 660]
         : type === 'lose' ? [220, 164] : [620];
     notes.forEach((hz, i) => {
-      const oscillator = audio.createOscillator(), gain = audio.createGain(), at = audio.currentTime + i * .085;
+      const oscillator = audio.createOscillator(), gain = audio.createGain(), at = now + i * .085;
       oscillator.type = 'sine'; oscillator.frequency.value = hz;
       gain.gain.setValueAtTime(0, at);
       gain.gain.linearRampToValueAtTime(.035, at + .01);
@@ -134,6 +191,59 @@ function playTone(type = 'click') {
       oscillator.start(at); oscillator.stop(at + .18);
     });
   } catch { /* 音频是可选增强，失败不影响游戏 */ }
+}
+
+function triggerConfetti() {
+  if (motion.matches || typeof document === 'undefined' || !dialog?.appendChild) return;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'confetti-canvas';
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:99;border-radius:inherit;';
+    const rect = dialog.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    dialog.appendChild(canvas);
+    const ctx = canvas.getContext?.('2d');
+    if (!ctx) { canvas.remove(); return; }
+    const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
+    const particles = Array.from({ length: 40 }, () => ({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 60,
+      y: canvas.height * 0.4,
+      vx: (Math.random() - 0.5) * 10,
+      vy: -(Math.random() * 8 + 4),
+      size: Math.random() * 6 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 0.2,
+      alpha: 1,
+    }));
+    let startTime = performance.now();
+    function step(time) {
+      const elapsed = (time - startTime) / 1000;
+      if (elapsed > 1.2 || !canvas.parentNode) {
+        canvas.remove();
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.35;
+        p.rotation += p.vRot;
+        p.alpha = Math.max(0, 1 - elapsed / 1.2);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  } catch { /* 动效可选 */ }
 }
 
 function soundLabel() {
@@ -443,7 +553,13 @@ function dispatch(action) {
 
   active.highlight = null;
   session.renderer.draw(engine, { falling: engine.event?.fallen ? engine.event.id : null });
-  if (engine.status === ENGINE_STATUS.PLAYING) playTone(engine.event?.fallen ? 'fall' : 'click');
+  if (engine.status === ENGINE_STATUS.PLAYING) {
+    if (active.manifest.id === 'water-sort' && action.type === 'pick' && engine.moves > 0 && engine.selected === null) {
+      playTone('pour');
+    } else {
+      playTone(engine.event?.fallen ? 'fall' : 'click');
+    }
+  }
   const outcome = session.poll();
   settle(outcome);
   updateStatus(true);
@@ -489,6 +605,7 @@ function settle(outcome) {
   renderCards();
   renderPicker(active.manifest, active.level);
   playTone(outcome.event === 'win' ? 'win' : 'lose');
+  if (outcome.event === 'win') triggerConfetti();
 
   const row = starRow(outcome.stars);
   const metrics = resultDetail(active.session.engine);
@@ -532,6 +649,14 @@ function animate(timestamp) {
   session.advance(delta);
   session.renderer.draw(session.engine);
   updateStatus();             // 文案未变化时内部不会触碰 DOM（含 live region）
+
+  const evt = session.engine.event;
+  if (evt && evt.at !== active.lastHandledAt) {
+    active.lastHandledAt = evt.at;
+    if (evt.type === 'upgrade') playTone('powerup');
+    else if (evt.type === 'hit') playTone('hit');
+    else if (evt.type === 'damage') playTone('fall');
+  }
 
   const outcome = session.poll();
   if (outcome) {

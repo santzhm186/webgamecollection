@@ -144,6 +144,7 @@ export const en = {
   "game.pins.treasureDanger": "Hazards are still active — the treasure fell into a deadly channel.",
   "game.pins.treasureNoBridge": "The bridge is not down yet — the treasure fell into the gap!",
   "game.pins.win": "The explorer got the treasure safely! Finished in {moves} steps, {stars} stars.",
+  "game.pins.undone": "Previous pin pull undone. Re-evaluate and choose safely.",
   "game.pins.hudPins": "Mechanisms",
   "game.pins.hudHints": "Hints",
   "game.pins.hudBest": "Best here",
