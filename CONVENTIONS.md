@@ -35,26 +35,33 @@ src/
 ├── locales/                   zh-CN.js · en.js（键集必须完全一致）
 ├── storage/adapter.js         存储端口（**仅端口，适配器未实现**）
 ├── ui/scene/primitives.js     ★ 共享 Canvas 绘制原语
-├── services/  leaderboard/  assets/  models/  scene3d/   （目录已备，待实现）
+├── ui/scene/three-models.js   ★ 共享 3D 运行时：模型 → sprite，无 WebGL 时降级
+├── models/arcade-kit.js       ★ 共享低多边形模型库（MATERIALS / MODELS 数据）
+├── services/  leaderboard/  assets/  scene3d/   （目录已备，待实现）
 
 games/
 ├── index.js                   ★ 注册表输入（动态 import 加载器数组）
 ├── README.md                  贡献者契约
 ├── _template/                 脚手架（可改名即用，自带 11 项测试）
-├── runner/                    ✅ 已迁移：manifest / engine / render / levels / assets
-├── pins/    screws/           ⏳ manifest 已就位，引擎待 P4 搬运
+├── runner/  pins/  screws/     manifest / engine / render / levels / assets
+├── water-sort/  warehouse/  shooter/   同上 + 各自 style.css / board.js（视玩法而定）
 
-public/assets/                 brand · art · audio/{bgm,sfx} · models
-tests/                         84 项测试（见 §6）
-scripts/                       serve · build · balance
+public/assets/                 brand · art · audio/{bgm,sfx} · models（24 个 .glb + manifest.json）
+public/lib/                    three.mjs（vendored，构建期由 esbuild 生成，**运行时动态 import**）
+tests/                         125 项测试（见 §6）
+scripts/                       serve · build · balance · build-models
 docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 ```
 
 ★ = 游戏被允许 import 的宿主路径（见 §2 铁律 3）。
 
-**待实现的目录说明**：`src/services/`、`src/leaderboard/`、`src/assets/`、`src/models/`、
-`src/scene3d/`、`src/storage/` 下的适配器目前**只有目录或只有端口**，
-详见 [架构方案](docs/ARCHITECTURE.md) 的阶段计划，不要以为它们已经能用。
+**待实现的目录说明**：`src/services/`、`src/leaderboard/`、`src/assets/`、`src/scene3d/`、
+`src/storage/` 下的适配器目前**只有目录或只有端口**，不要以为它们已经能用。
+
+**已落地的 3D 管线**（v0.3）：共享模型库 `src/models/arcade-kit.js`（数据）
+→ `scripts/build-models.mjs` 导出 24 个 `.glb` + `public/assets/models/manifest.json`
+→ `src/ui/scene/three-models.js` 在运行时把模型渲染成 **sprite** 供 2D Canvas 使用，
+无 WebGL 时安全降级。**注意**：这是"3D 资产 + 2D 渲染"，不是 3D 场景。
 
 ---
 
@@ -62,7 +69,7 @@ docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 
 | # | 铁律 | 为什么 | 执行者 |
 | --- | --- | --- | --- |
-| **1** | **零运行时依赖，不引入打包器** | 没有供应链攻击面；首屏成本可控；clone 即跑 | 人工 review（新增依赖需单独论证） |
+| **1** | **依赖策略：运行时禁止 `import` npm 包**。第三方库必须 vendor 成单文件放 `public/lib/` 并**动态 import**；构建期只允许 esbuild 生成 vendor。目前唯一被允许的第三方库是 Three.js | 供应链面保持最小；742KB 的 three 不进首屏；断网/CDN 不可用时仍能跑 | 人工 review + 文档测试（依赖策略与 `package.json` 一致） |
 | **2** | **依赖单向向下**：`games → 契约 → 适配器`，禁止反向 | 反向依赖会让渲染层认识规则层，最终谁也不敢改 | T5 / T6 |
 | **3** | **游戏只能 import 四个位置**：自己的文件、`src/core/host-surface.js`、`src/ui/scene/primitives.js`、`src/ui/scene/three-models.js` | 否则边界会一点点烂掉（今天 import i18n，明天直接读 localStorage） | T5 |
 | **4** | **引擎不碰 DOM**（`document` / `window` / `localStorage` / `rAF` 全禁） | 这是能在 Node 里穷举玩法正确性的唯一前提 | T5（规则约束）+ 游戏测试 |
@@ -119,7 +126,7 @@ docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 | --- | --- | --- | --- | --- |
 | 闭合枚举 | [`src/core/enums.js`](src/core/enums.js) | 宿主判断用的机器值（14 组，见 §4.5） | 只有宿主，算契约变更 | 枚举测试 |
 | 共用显示文案 | [`src/core/labels.js`](src/core/labels.js) | 难度、分类名、星级图形、语气 | 宿主（PR 审核） | 单元测试 |
-| 多语言文案 | [`src/locales/*.js`](src/locales/) | **所有面向玩家的字符串**（当前 202 键 × 2 语言） | 任何人，但须补全所有语言 | T1 / T3 / T4 |
+| 多语言文案 | [`src/locales/*.js`](src/locales/) | **所有面向玩家的字符串**（当前 341 键 × 2 语言，覆盖 6 个游戏） | 任何人，但须补全所有语言 | T1 / T3 / T4 |
 | 游戏私有字典 | `games/<id>/dictionary.js` | 只有这个游戏认识的词汇与几何 | 该游戏贡献者 | T3 / T5 |
 
 ### 4.1 文案键的 area 白名单
@@ -248,7 +255,9 @@ v0.3 共 6 款游戏、38 关、114 星；新增关卡只追加，旧索引保�
 
 **改约定时必须同时改文档与测试** —— 否则 CI 会失败，这正是设计意图（见 [决策 D15](docs/DECISIONS.md)）。
 
-P3 基线共 84 项测试（v0.3 已增加新游戏、模型与宿主回归用例）：字典与约定 29 · 注册表与会话 14 · 文档 4 · 注册表加载 4 · 宿主交互 6 · 玩法 12 · 模板 11 · 冲关输入 4。具体项数以 `npm test` 输出为准。
+当前共 **125 项测试**（v0.3 增加了 3 个新游戏、模型资产与宿主回归用例；文档漂移由 `tests/docs.test.mjs` 自动校验），按职责分布：
+字典与约定 29 · 注册表与会话 14 · 注册表加载 4 · 宿主交互 9 · 冲关输入 4 · 文档校验 8 · 模型资产 4 ·
+玩法（6 个游戏）42 · 模板脚手架 11。
 
 ---
 
@@ -316,9 +325,9 @@ P3 基线共 84 项测试（v0.3 已增加新游戏、模型与宿主回归用�
 
 | 阶段 | 状态 |
 | --- | --- |
-| P0 字典与命名统一 | ✅ 已完成（4 层字典、202 键 × 2 语言、14 组枚举） |
+| P0 字典与命名统一 | ✅ 已完成（4 层字典、341 键 × 2 语言、14 组枚举） |
 | P0 契约层 + 存储端口 | ✅ 已定义；⏳ 适配器与 `ScoreStore` / `ProgressStore` 未实现 |
-| P3 宿主框架 + runner 迁移 | ✅ 已完成（注册表、会话、84 项测试、浏览器验收通过） |
+| P3 宿主框架 + runner 迁移 | ✅ 已完成（注册表、会话、浏览器验收通过） |
 | P1 存储收口（5 处 `localStorage` 改走适配器） | ⏳ 未开始 |
 | P4 pins / screws 搬入各自目录，消除单体逻辑 | ✅ 已完成（已独立为子模块并保留兼容桥） |
 | P5 排行榜 | ⏳ 未开始（排名算法与口径已设计） |

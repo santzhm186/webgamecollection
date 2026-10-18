@@ -13,17 +13,34 @@
 
 ---
 
-## D1 · 零运行时依赖，不引入打包器
+## D1 · 依赖策略：运行时禁止 `import` npm 包，第三方库必须内联（vendored）
 
-- **背景**：项目要在 GitHub 开源、接受多人贡献，且游戏数量会增长（可能到几十个）。
-- **选择**：运行时与开发期都**不装任何 npm 包**；继续用原生 ES Module + Canvas/SVG。
+> **v0.3 修订。** 原文是"零运行时依赖，不引入打包器"。v0.3 为 3D 模型管线引入了
+> Three.js 与 esbuild，原文已不成立 —— 但**核心约束（运行时零 npm import）仍然保留**，
+> 只是允许"构建期生成、运行期内联"这一条通路。修订原因与代价见下，修订记录见文末。
+
+- **背景**：项目要在 GitHub 开源、接受多人贡献，且游戏数量会增长（可能到几十个）；
+  v0.3 起需要共享 3D 模型（24 个 GLB，见 [D16](#d16--共享低多边形模型库gltf-导出--sprite-渲染)）。
+- **选择**：
+  1. **运行时禁止 `import` npm 包** —— 游戏与宿主代码里不得出现 `from 'three'` 之类的裸模块导入。
+  2. 第三方库以**单文件 vendor** 形式放 `public/lib/`，且**只能动态 import**：
+     `await import('../../../public/lib/three.mjs')`，这样 2D 降级与 Node 测试都不受影响。
+  3. 构建期允许 `esbuild`，唯一用途是把 `three.module.js` 打成 `public/lib/three.mjs`
+     （`postinstall` 脚本）。**不允许**把 esbuild 用于应用代码的打包。
+  4. 只允许一个第三方运行时库（Three.js）。第二个需要重新论证。
 - **被否掉的方案**：
-  - 引入 Vite / React —— 违背零依赖前提；`import.meta.glob` 之类能力看似方便，
-    代价是首屏体积与构建链复杂度，而本项目根本没有需要框架解决的问题。
-  - TypeScript 编译 —— 类型安全改用 **JSDoc typedef + 测试校验**获得（见 D4）。
-- **代价**：没有 tree-shaking、没有模块热替换、类型检查靠约定与测试而非编译器。
-- **换来什么**：**没有供应链攻击面**，首屏成本完全可控，任何人 clone 下来 `npm run dev` 即可跑。
-- **状态**：已定。新增依赖需要在 PR 里单独论证（见 [协作文档](SCALING-AND-CONTRIBUTING.md) §5）。
+  - 直接 `import 'three'` —— 需要打包器或 importmap，Node 测试环境无法解析，且首屏被迫加载 742KB。
+  - 从 CDN 引 three —— 断网 / 内网 / 强 CSP 环境下不可用，违背"本地能跑"。
+  - 完全不引入 3D —— 放弃模型库的复用价值；而 sprite 降级路径让成本可控。
+  - 引入 Vite / React —— 本项目没有需要框架解决的问题（见 D4 用 JSDoc + 测试代替类型编译）。
+- **代价**：
+  - 供应链面从 0 变成 **1**（three）。这是本轮最大的取舍，必须在 review 时守住"只有一个"。
+  - `public/lib/three.mjs` 742KB（贪婪加载时才下载，不进首屏）。
+  - **首次运行需要 `npm install`**（生成 vendor）。仓库当前已含生成物，所以 clone 即可跑 ——
+    但这也带来一个仓库一致性隐患：`public/lib/` 同时在 `.gitignore` 里，见文末"已知问题"。
+- **换来什么**：24 个模型可跨 6 个游戏复用；2D Canvas 玩法不必改架构就能用上 3D 资产；
+  无 WebGL 时安全降级；首屏体积仍与是否用 3D 无关。
+- **状态**：已定（v0.3 修订）。新增依赖需在 PR 里单独论证（见 [协作文档](SCALING-AND-CONTRIBUTING.md) §5）。
 
 ## D2 · 纯静态优先，但存储层做成可替换适配器
 
@@ -146,7 +163,7 @@
 - **已知偏离**：`DIFFICULTY` 的**索引是中文**（`'入门'`），因为它同时是关卡数据里的机器值，
   且被三个游戏共享。显示层已用 `difficultyLabel()` 做映射（英文语境显示 `Beginner`），
   **不影响使用**；改为英文键要同步改三套关卡数据，排在 P4。
-- **状态**：已定，已实现（202 个文案键 × 2 语言；14 组闭合枚举）。
+- **状态**：已定，已实现（341 个文案键 × 2 语言，覆盖 6 个游戏；14 组闭合枚举）。
 
 ## D12 · 多语言：文案键 + 三层渲染，`?lang=` 不写持久化
 
@@ -193,6 +210,38 @@
 
 ---
 
+## D16 · 共享低多边形模型库（glTF 导出 + sprite 渲染）
+
+- **背景**：v0.3 需要"共享资源库包括模型"。有两个完全不同的方向：真 3D 场景，
+  还是把 3D 资产**降维**给现有 2D 玩法用。
+- **选择**：**数据一份、两处受益**的管线：
+
+  ```
+  src/models/arcade-kit.js       共享模型库（MATERIALS + MODELS，纯数据，无规则）
+        │  scripts/build-models.mjs（Node 侧用 three 离屏渲染/导出）
+        ▼
+  public/assets/models/*.glb     24 个模型 + manifest.json
+        │                         （version / format: glTF 2.0 / units: metres / up: +Y / forward）
+        ▼
+  src/ui/scene/three-models.js   运行时：WebGL 离屏渲染成 sprite（getAssetSprite）
+        │                         无 WebGL 时**安全降级**为 2D 绘制
+        ▼
+  games/*/render.js              2D Canvas 直接当 sprite 用（士兵、金币、货箱…）
+  ```
+
+- **为什么是 sprite 而不是 3D 场景**：
+  - 6 个游戏全部是 2D Canvas / SVG 玩法，改造为 3D 场景等于重写；
+  - sprite 让"同一套模型"立刻被多个游戏复用（manifest 里每个模型带 `reuse: [runner, pins, shooter]`）；
+  - 运行时成本可控：只有真正需要模型时才动态加载 three（D1），且每张 sprite 只渲染一次。
+- **被否掉的方案**：
+  - 直接上 3D 场景（`scene3d/`）—— 需要重写玩法与碰撞，收益不匹配（`src/scene3d/` 仍为空）。
+  - 用手绘 SVG 代替模型 —— 模型库的价值在"一处建模、多游戏复用"，手绘无法复用几何。
+- **代价**：模型需要离线构建（`npm run models`）；GLB 与 manifest 必须同步（有测试校验
+  GLB 头、三角形数、包围盒与 definitions 一致）；引入 three（见 D1 的供应链代价）。
+- **状态**：已定，已实现（24 个模型；骨骼动画与 `ResourceManager` 未实现）。
+
+---
+
 ## 修订记录（本轮被推翻或删除的决策）
 
 保留这些记录是为了避免"来回改"——下次有人想加回多人适配器时，
@@ -200,6 +249,7 @@
 
 | 变更 | 原决策 | 现决策 | 原因 |
 | --- | --- | --- | --- |
+| **依赖策略（D1）** | 运行时与开发期**都不装 npm 包**，不引入打包器 | 允许 Three.js 作为**唯一**第三方运行时库，但必须 vendor 到 `public/lib/` 且只能动态 import；构建期允许 esbuild 生成 vendor | v0.3 的 3D 模型管线需要 three；为保住"运行时零 npm import、首屏不加载 3D"，选择内联而非裸导入 |
 | 多人适配器 | 实现 `hotseat-transport.js` 与 `bot-transport.js`（约 270 行） | **全部删除**，只留契约与接入路线 | 需求方明确"先不添加，只做预留"。空目录也会误导，故连目录一起删 |
 | `art.mjs` | 宿主级冲关渲染文件 | **删除**，内容迁入 `games/runner/render.js` 与 `src/ui/scene/primitives.js` | 渲染属于游戏；共享原语属于共享层 |
 | `engine.mjs` | 三合一规则文件 | **过渡文件**，只剩 pins/screws，P4 删除 | runner 已迁走；保留是为了让三个游戏都能走同一套注册表 |
@@ -217,4 +267,13 @@
 2. **主题/换肤**：是否支持多套主题？决定 `tokens.css` 与 `palette()` 的抽象程度。
 3. **移动端优先级**：若为一等目标，`Renderer.mount` 需约定安全区与手势冲突处理。
 4. **是否需要真正的 3D 首发游戏**：若有，`src/scene3d/**` 要从"预留目录"提前建设。
-5. **难度机器值英文化**：见 D11 的已知偏离，计划在 P4 顺带完成。
+5. **难度机器值英文化**：见 D11 的已知偏离。P4 已完成 pins/screws 拆分，此项仍未做。
+
+---
+
+## 已知问题（需维护者决定，未擅自修改）
+
+| # | 问题 | 影响 | 建议 |
+| --- | --- | --- | --- |
+| 1 | `public/lib/three.mjs` **同时被 git 追踪且被 `.gitignore` 忽略** | 重新生成 vendor 后 `git` 看不到变化 → 提交里是旧文件，另一台机器上行为不一致 | 二选一：① 保留追踪，从 `.gitignore` 删掉 `/public/lib/`；② 停止追踪（`git rm --cached`），clone 后必须 `npm install`。当前 README 写"首次需 npm install"，与"已追踪"矛盾 |
+| 2 | 各游戏 `assets.js` 的模型路径前缀不一致：`public/assets/models/…` 与 `./public/assets/models/…` 混用（33 处 vs 12 处），**且没有测试校验这些路径可解析** | 目前都能工作（都相对当前文档 URL），但在子路径部署或改用模块相对解析时会 404，且是"构建通过、运行时 404"那类难查故障 | 统一成一种写法（建议 `public/assets/models/…` 无 `./`），并加一项测试：逐条断言 `src` 指向的文件真实存在 |

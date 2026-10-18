@@ -16,7 +16,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
@@ -116,5 +116,92 @@ test('文档：约定的执行者（测试组）真实存在', async () => {
     ['tests/framework.test.mjs', framework, '迁移完整性'],
   ]) {
     assert.ok(content.includes(marker), `${file} 应包含「${marker}」用例（被文档引用为执行者）`);
+  }
+});
+
+/* ============================================================================
+ * 以下四条是"数字漂移"防线。
+ * 本轮真实发生过：项目从 3 个游戏长到 6 个、文案从 201 键涨到 341 键、
+ * 测试从 64 项涨到 121 项，而文档里的旧数字仍能"看起来合理"地存在；
+ * 更严重的是 package.json 引入了 three + esbuild，而 DECISIONS 的 D1 仍写着
+ * "零运行时依赖，不引入打包器"—— 文档与代码直接矛盾。
+ * 这些都不该靠人工发现。
+ * ==========================================================================*/
+
+test('文档：依赖策略与 package.json 一致（防止"零依赖"声明与实际依赖矛盾）', async () => {
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  const conventions = await readFile(join(root, 'CONVENTIONS.md'), 'utf8');
+  const decisions = await readFile(join(root, 'docs/DECISIONS.md'), 'utf8');
+  const readme = await readFile(join(root, 'README.md'), 'utf8');
+  const deps = Object.keys(pkg.dependencies ?? {});
+
+  if (deps.length === 0) {
+    // 真零依赖：文档应仍然声称零依赖
+    assert.match(conventions, /零运行时依赖|依赖策略/,
+      '没有运行时依赖时，CONVENTIONS 应说明零依赖策略');
+    return;
+  }
+
+  // 有依赖：文档必须写明"内联（vendored）/动态 import"这一约束，且不得继续声称零依赖
+  assert.match(conventions, /vendor|内联|public\/lib/,
+    `package.json 有运行时依赖（${deps.join(', ')}），CONVENTIONS 必须写明"第三方库必须 vendor 到 public/lib 并动态 import"的约束`);
+  assert.match(decisions, /vendor|内联/,
+    'DECISIONS 的 D1 必须记录依赖策略的修订（vendor + 动态 import），不能停留在"零依赖"');
+  assert.doesNotMatch(conventions, /零运行时依赖/,
+    '存在运行时依赖时，CONVENTIONS 不得再声称"零运行时依赖"（应改为"运行时禁止 import npm 包"）');
+  // D1 的标题是最容易忘记改的地方：有依赖时它不能再叫"零运行时依赖"
+  assert.doesNotMatch(decisions, /## D1 · 零运行时依赖/,
+    '存在运行时依赖时，D1 的标题必须改为"依赖策略"（否则标题与正文自相矛盾）');
+
+  // 仓库里的 vendor 必须真实存在，否则运行时会在需要 3D 时 404
+  const vendor = join(root, 'public/lib/three.mjs');
+  assert.ok(existsSync(vendor),
+    'package.json 依赖 three，但 public/lib/three.mjs 不存在 —— 请运行 npm install 生成 vendor');
+  assert.ok((await stat(vendor)).size > 100_000,
+    'vendor 的 three.mjs 体积异常（应为打包后的完整文件）');
+
+  // README 的安装说明必须与"需要生成 vendor"一致
+  assert.match(readme, /npm install/,
+    '存在需要 vendor 的依赖时，README 必须写明需要 npm install');
+});
+
+test('文档：注册表里的每个游戏都在 CONVENTIONS 的结构说明中出现', async () => {
+  const index = await readFile(join(root, 'games/index.js'), 'utf8');
+  const ids = [...index.matchAll(/import\('\.\/([a-z0-9-]+)\/manifest\.js'\)/g)].map(m => m[1]);
+  assert.ok(ids.length >= 3, '应至少注册 3 个游戏');
+
+  const conventions = await readFile(join(root, 'CONVENTIONS.md'), 'utf8');
+  const missing = ids.filter(id => !new RegExp(`(^|[^a-z-])${id}/`, 'm').test(conventions));
+  assert.deepEqual(missing, [],
+    `以下游戏已注册但未出现在 CONVENTIONS 的目录结构里（新增游戏必须同步文档）：${missing.join(', ')}`);
+});
+
+test('文档：声称的测试总数与实际一致', async () => {
+  const files = [
+    ...(await readdir(join(root, 'tests'))).filter(f => f.endsWith('.test.mjs')).map(f => join(root, 'tests', f)),
+    ...(await readdir(join(root, 'games/_template'))).filter(f => f.endsWith('.test.mjs')).map(f => join(root, 'games/_template', f)),
+  ];
+  let actual = 0;
+  for (const file of files) {
+    actual += (await readFile(file, 'utf8')).match(/^test\(/gm)?.length ?? 0;
+  }
+  assert.ok(actual > 0, '没有找到任何测试');
+
+  const conventions = await readFile(join(root, 'CONVENTIONS.md'), 'utf8');
+  const claimed = conventions.match(/当前共 \*\*(\d+) 项测试\*\*/);
+  assert.ok(claimed, 'CONVENTIONS §6 应写明"当前共 N 项测试"');
+  assert.equal(Number(claimed[1]), actual,
+    `CONVENTIONS 声称 ${claimed[1]} 项测试，实际 ${actual} 项 —— 增删测试后请同步文档`);
+});
+
+test('文档：声称的文案键数与实际一致', async () => {
+  const { BUNDLES } = await import('../src/locales/index.js');
+  const actual = Object.keys(BUNDLES['zh-CN']).length;
+  const conventions = await readFile(join(root, 'CONVENTIONS.md'), 'utf8');
+  const claims = [...conventions.matchAll(/(\d+) 键 × 2 语言/g)].map(m => Number(m[1]));
+  assert.ok(claims.length > 0, 'CONVENTIONS 应写明当前文案键数');
+  for (const claim of claims) {
+    assert.equal(claim, actual,
+      `CONVENTIONS 声称 ${claim} 个文案键，实际 ${actual} 个 —— 加键后请同步文档`);
   }
 });
