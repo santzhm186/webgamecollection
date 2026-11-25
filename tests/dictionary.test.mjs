@@ -262,6 +262,7 @@ const isLineAllowlisted = (file, line) =>
 
 test('T4 JS 界面文件不得硬编码面向玩家的中文文案', async () => {
   const files = ['app.mjs', 'boards.mjs', 'engine.mjs',
+    ...(await collectFiles('src/ui', name => name.endsWith('.js'))),
     ...(await collectFiles('games', name => name.endsWith('.js'))).filter(file => !file.startsWith('games/_template/'))];
   const violations = [];
   for (const file of files) {

@@ -23,6 +23,26 @@ test('注册表加载：首页只加载 manifest，不提前调用玩法或资�
   assert.deepEqual(calls, { levels: 0, engine: 0, renderer: 0, assets: 0 });
 });
 
+test('注册表加载：manifest 并行加载，按声明顺序处理重名和失败', async () => {
+  const registry = createRegistry();
+  const started = [];
+  const errors = [];
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const pending = registry.load([
+    async () => { started.push('first'); await gate; return { default: runnerManifest }; },
+    () => { started.push('second'); return { default: { ...runnerManifest, order: '99' } }; },
+    () => { started.push('broken'); throw new Error('unavailable-manifest'); },
+  ], { onError: error => errors.push(error) });
+  const beforeRelease = [...started];
+  release();
+  assert.deepEqual(await pending, { loaded: 1, failed: 2 });
+  assert.deepEqual(beforeRelease, ['first', 'second', 'broken']);
+  assert.equal(registry.get('runner'), runnerManifest);
+  assert.match(errors[0], /id 冲突/);
+  assert.match(errors[1], /unavailable-manifest/);
+});
+
 test('注册表加载：同一游戏并发 resolve 与后续缓存只调用一次各加载器', async () => {
   let release;
   const gate = new Promise(resolve => { release = resolve; });

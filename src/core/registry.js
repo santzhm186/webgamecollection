@@ -136,16 +136,18 @@ export function createRegistry() {
     entries.clear();
     let failed = 0;
 
-    for (const loader of loaders) {
-      let manifest;
-      try {
-        manifest = (await loader())?.default;
-      } catch (error) {
+    // Fetch manifests together, then register in index order so duplicate IDs
+    // still belong to the first entry, regardless of which import finishes first.
+    const modules = await Promise.allSettled(loaders.map(async loader => (await loader())?.default));
+    for (const module of modules) {
+      if (module.status === 'rejected') {
         failed++;
+        const error = module.reason;
         onError(`[registry] 游戏模块加载失败，已跳过该游戏: ${error?.message || error}`);
         continue;
       }
 
+      const manifest = module.value;
       const errors = validateManifest(manifest);
       if (errors.length) {
         failed++;

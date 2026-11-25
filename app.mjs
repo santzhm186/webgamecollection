@@ -23,11 +23,12 @@ import { createRegistry } from './src/core/registry.js';
 import { createSession } from './src/core/lifecycle.js';
 import { MODULES } from './games/index.js';
 import {
-  t, initLocale, setLocale, onLocaleChange, localeOptions, getLocaleMeta, applyToDocument,
+  t, initLocale, setLocale, localeOptions, getLocaleMeta,
 } from './src/core/i18n.js';
-import { BUNDLES } from './src/locales/index.js';
-import { ENGINE_STATUS, HUD_TONE } from './src/core/enums.js';
-import { DIFFICULTY, STAR, starRow, TONE_CLASS } from './src/core/labels.js';
+import { ENGINE_STATUS } from './src/core/enums.js';
+import { DIFFICULTY, STAR, starRow } from './src/core/labels.js';
+import { mountHome } from './src/ui/home.js';
+import { createGameHud } from './src/ui/game-hud.js';
 
 const $ = selector => document.querySelector(selector);
 
@@ -36,13 +37,14 @@ initLocale();
 
 const dialog = $('#game-dialog'), area = $('#play-area'), status = $('#game-status');
 const startButton = $('#start-game'), nextButton = $('#next-level');
+const hintButton = $('#hint-button'), undoButton = $('#undo-button');
+const updateHud = createGameHud(document, $('#game-hud'));
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 
-let filter = 'all';
 let sound = false;
 let audio = null;
-let frame = 0;
-let previousTime = 0;
+let frame = null;
+let previousTime = null;
 
 /* ============================================================ 注册表 */
 
@@ -50,8 +52,7 @@ const registry = createRegistry();
 const { loaded, failed } = await registry.load(MODULES);
 if (failed) console.warn(`[app] ${loaded} 个游戏加载成功，${failed} 个被跳过（详见上方 registry 错误）`);
 
-/** 只缓存玩家已经打开的游戏；首页不加载关卡、引擎或渲染器。 */
-const resolved = new Map();
+const manifests = registry.list();
 
 /* ============================================================ 注入上下文 */
 
@@ -63,7 +64,6 @@ const gameContext = {
   t,
   sfx: name => playTone(name),
   toast: message => { status.textContent = message; },
-  theme: null,                 // 每次开局按 manifest.theme 填入
   viewport: { width: 0, height: 0, dpr: 1 },
   report: () => {},            // 埋点预留
   use: async () => null,       // 资源加载预留（ResourceManager 尚未实现）
@@ -77,9 +77,7 @@ const gameContext = {
  * 新增游戏自动获得进度槽位，不必改本文件。
  */
 const progress = {};
-const levelCounts = {};
-for (const manifest of registry.list()) {
-  levelCounts[manifest.id] = manifest.levelCount;
+for (const manifest of manifests) {
   progress[manifest.id] = Array.from({ length: manifest.levelCount }, () => ({ stars: 0, score: 0 }));
 }
 
@@ -103,6 +101,8 @@ try {
   }
   sound = localStorage.getItem('wande-dao-sound') === 'true';
 } catch { /* 隐私模式：进度只在本次会话内有效，不影响游玩 */ }
+
+const home = mountHome(document, manifests, progress);
 
 function persist() {
   try { localStorage.setItem('wande-dao-progress-v2', JSON.stringify(progress)); }
@@ -270,121 +270,12 @@ const DIFFICULTY_KEYS = {
 };
 const difficultyLabel = difficulty => (DIFFICULTY_KEYS[difficulty] ? t(DIFFICULTY_KEYS[difficulty]) : difficulty);
 
-/**
- * 某个文案键在**所有已支持语言**下的取值。
- * 用于搜索索引：只索引当前语言的名称会让"换个语言就搜不到"。
- */
-function allTitles(key) {
-  return Object.values(BUNDLES).map(bundle => bundle[key]).filter(Boolean);
+function levelTitle(config) {
+  return config?.titleKey ? t(config.titleKey) : (config?.title ?? '');
 }
-
-/** 关卡显示名。新实现给 titleKey，旧实现（pins/screws 待迁移）给 title —— 两种都支持。 */
-function manifestTitles(id) {
-  return (resolved.get(id)?.levels ?? []).map(config =>
-    (config.titleKey ? t(config.titleKey) : (config.title ?? '')));
-}
-
-/* ============================================================ 首页渲染 */
-
-/**
- * 卡片由注册表 + HTML `<template>` 生成。
- * 模板留在 index.html 的原因：文案键仍能被 T4 扫描器检查到 ——
- * 如果整段卡片写在 JS 模板字符串里，键写错要到运行时才发现。
- */
-function renderCards() {
-  const grid = $('#game-grid'), template = $('#game-card-template');
-  if (!grid || !template) return;
-  grid.innerHTML = '';
-
-  for (const manifest of registry.list()) {
-    const node = template.content.firstElementChild.cloneNode(true);
-    node.dataset.game = manifest.id;
-    node.dataset.category = manifest.category;
-    node.querySelector('.new-badge').hidden = !manifest.isNew;
-    const clearedLevels = progress[manifest.id].filter(record => record.stars > 0).length;
-    node.querySelector('.card-progress i').style.width = `${clearedLevels / manifest.levelCount * 100}%`;
-    // 搜索索引包含**所有语言**的名称 + id + 标签：
-    // 中文界面下搜 "unscrew"、英文界面下搜 "螺丝" 都应该能找到 ——
-    // 玩家不记得当前界面用的是哪种语言。
-    node.dataset.name = [
-      ...allTitles(manifest.titleKey),
-      manifest.id,
-      manifest.category,
-      ...(manifest.tags ?? []),
-    ].join(' ').toLowerCase();
-    node.querySelector('.card-number').textContent = `${manifest.order ?? '—'} / ${t(`nav.${manifest.category}`)}`;
-    node.querySelector('h3').textContent = t(manifest.titleKey);
-    const badge = node.querySelector('.badge');
-    badge.dataset.i18nParams = `n:${progress[manifest.id].filter(record => record.stars > 0).length},total:${levelCounts[manifest.id]}`;
-    node.querySelector('.card-body p').dataset.i18n = manifest.taglineKey;
-    node.querySelector('.card-footer > span').textContent = manifest.cardMetaKey ? t(manifest.cardMetaKey) : '';
-    for (const button of node.querySelectorAll('[data-open]')) {
-      button.dataset.open = manifest.id;
-      button.setAttribute('aria-label', t(manifest.artLabelKey ?? 'home.cardArtLabel', { title: t(manifest.titleKey) }));
-    }
-    node.querySelector('.card-art').style.setProperty('--accent', manifest.theme?.accent ?? '#88898c');
-    const preview = node.querySelector('.card-preview');
-    if (manifest.preview) preview.setAttribute('src', manifest.preview);
-    else preview.hidden = true;
-    grid.append(node);
-  }
-  applyToDocument(grid);
-  filterGames();
-}
-
-function homeProgress() {
-  const cleared = Object.values(progress).filter(records => records.every(record => record.stars > 0)).length;
-  $('#completed-label').dataset.i18nParams = `n:${cleared},total:${registry.size}`;
-  $('#completed-label').innerHTML = t('progress.completed', {
-    n: `<strong id="completed-count">${cleared}</strong>`,
-    total: registry.size,
-  });
-  $('#nav-game-count').textContent = String(registry.size).padStart(2, '0');
-  $('#library-game-count').textContent = String(registry.size).padStart(2, '0');
-  $('#library-level-count').textContent = Object.values(levelCounts).reduce((sum, n) => sum + n, 0);
-  $('#library-star-count').textContent = Object.values(progress).flat().length * STAR.MAX;
-  const stars = Object.values(progress).flat().reduce((sum, record) => sum + record.stars, 0);
-  $('#star-count').textContent = t('progress.stars', { n: stars, total: Object.values(progress).flat().length * STAR.MAX });
-}
-
-function renderFooterYear() {
-  const node = $('#footer-year');
-  if (node) {
-    const year = new Date().getFullYear();
-    node.dataset.i18nParams = `year:${year}`;
-    node.textContent = t('app.footerCopyright', { year });
-  }
-}
-
-/* ============================================================ 筛选与搜索 */
-
-function filterGames() {
-  const query = $('#search').value.trim().toLowerCase();
-  let count = 0;
-  document.querySelectorAll('.game-card').forEach(card => {
-    card.hidden = (filter !== 'all' && card.dataset.category !== filter) || !card.dataset.name.includes(query);
-    if (!card.hidden) count++;
-  });
-  $('#game-count').textContent = String(count).padStart(2, '0');
-  $('#empty-state').hidden = count > 0;
-}
-
-document.querySelectorAll('[data-filter]').forEach(button => {
-  button.setAttribute('aria-pressed', String(button.classList.contains('active')));
-  button.addEventListener('click', () => {
-    filter = button.dataset.filter;
-    document.querySelectorAll('[data-filter]').forEach(other => {
-      other.classList.toggle('active', other === button);
-      other.setAttribute('aria-pressed', String(other === button));
-    });
-    filterGames();
-  });
-});
-$('#search').addEventListener('input', filterGames);
 
 /* ============================================================ 游戏会话 */
 
-/** @type {{manifest: object, session: object, level: number, paused: boolean, highlight: unknown}|null} */
 let active = null;
 let loadRequest = 0;
 
@@ -429,8 +320,7 @@ async function startLevel(manifest, level) {
 
 async function mountLevel(manifest, level) {
   const request = ++loadRequest;
-  cancelAnimationFrame(frame);
-  previousTime = 0;
+  stopAnimation();
   active?.session?.destroy();
   active = null;
   area.innerHTML = '';
@@ -438,11 +328,11 @@ async function mountLevel(manifest, level) {
   $('#pause-overlay').hidden = true;
   dialog.dataset.game = manifest.id;
   $('#game-title').textContent = gameTitle(manifest);
-  $('#game-hud').innerHTML = '';
+  updateHud([]);
   $('#level-picker').innerHTML = '';
   $('#result-panel').hidden = true;
   nextButton.hidden = startButton.hidden = true;
-  $('#hint-button').hidden = $('#undo-button').hidden = true;
+  hintButton.hidden = undoButton.hidden = true;
   status.textContent = t('status.loadingGame');
   status.classList.remove('fail');
 
@@ -460,25 +350,22 @@ async function mountLevel(manifest, level) {
   if (!Array.isArray(loaders.levels) || loaders.levels.length !== manifest.levelCount) {
     throw new Error(`[app] ${manifest.id}: levelCount does not match loaded levels`);
   }
-  resolved.set(manifest.id, loaders);
-
-  gameContext.theme = manifest.theme ?? null;
   const session = createSession({
     gameId: manifest.id,
     level,
     Engine: loaders.Engine,
     createRenderer: loaders.createRenderer,
-    ctx: sessionContext(),
+    ctx: sessionContext(manifest.theme),
     timeDriven: manifest.timeDriven,
   });
 
-  active = { manifest, session, level, paused: false, highlight: null };
+  active = { manifest, session, level, levels: loaders.levels, highlight: null };
   dialog.dataset.game = manifest.id;
   $('#game-title').textContent = gameTitle(manifest);
   $('#game-category').textContent = `${manifest.order ?? '—'} / ${t(`nav.${manifest.category}`)}`;
   $('#game-instruction').textContent = t(manifest.controlsKey);
   $('#level-label').textContent = t('dialog.levelLabel', {
-    title: manifestTitles(manifest.id)[level] ?? '',
+    title: levelTitle(active.levels[level]),
     difficulty: difficultyLabel(session.engine.config?.difficulty),
   });
   $('#result-panel').hidden = true;
@@ -489,8 +376,8 @@ async function mountLevel(manifest, level) {
   startButton.classList.add('primary');
   startButton.classList.remove('secondary');
   startButton.innerHTML = `${t('dialog.start')} <span>→</span>`;
-  $('#hint-button').hidden = typeof session.engine.hint !== 'function';
-  $('#undo-button').hidden = typeof session.engine.undo !== 'function';
+  hintButton.hidden = typeof session.engine.hint !== 'function';
+  undoButton.hidden = typeof session.engine.undo !== 'function';
   $('.helper-tools > span').textContent = assistGoal(session.engine);
 
   // 必须传 session.ctx：渲染器通过 ctx.dispatch 回报玩家操作。
@@ -500,7 +387,7 @@ async function mountLevel(manifest, level) {
   }
   session.renderer.setReducedMotion?.(motion.matches);
   session.renderer.mount(area, session.engine, session.ctx);
-  renderPicker(manifest, level);
+  renderPicker();
   dialog.scrollTop = 0;
   updateStatus(true);
   (needsStart ? startButton : area).focus?.({ preventScroll: true });
@@ -516,14 +403,14 @@ function assistGoal(engine) {
 }
 
 /** 关卡选择器 */
-function renderPicker(manifest, current) {
+function renderPicker() {
+  const { manifest, level: current, levels } = active;
   const picker = $('#level-picker');
   const max = unlockedLevel(manifest.id);
-  const titles = manifestTitles(manifest.id);
-  picker.innerHTML = Array.from({ length: levelCounts[manifest.id] }, (_, i) => {
+  picker.innerHTML = Array.from(levels, (config, i) => {
     const stars = progress[manifest.id][i].stars;
     const locked = i > max;
-    return `<button class="level-chip ${i === current ? 'selected' : ''} ${stars ? 'cleared' : ''}" data-level="${i}" ${locked ? 'disabled' : ''} aria-label="${t('dialog.levelChipLabel', { n: i + 1, title: titles[i] ?? '' })}${locked ? t('dialog.levelLocked') : ''}" aria-pressed="${i === current}"><span>${locked ? '·' : i + 1}</span><small>${stars ? starRow(stars).filled.join('') : locked ? t('dialog.levelPending') : t('dialog.levelChallenge')}</small></button>`;
+    return `<button class="level-chip ${i === current ? 'selected' : ''} ${stars ? 'cleared' : ''}" data-level="${i}" ${locked ? 'disabled' : ''} aria-label="${t('dialog.levelChipLabel', { n: i + 1, title: levelTitle(config) })}${locked ? t('dialog.levelLocked') : ''}" aria-pressed="${i === current}"><span>${locked ? '·' : i + 1}</span><small>${stars ? starRow(stars).filled.join('') : locked ? t('dialog.levelPending') : t('dialog.levelChallenge')}</small></button>`;
   }).join('');
   picker.querySelectorAll('[data-level]').forEach(button => button.addEventListener('click', () => {
     startLevel(manifest, Number(button.dataset.level));
@@ -536,8 +423,8 @@ function renderPicker(manifest, current) {
  * 注入给游戏的上下文。**每次开局都新建**，并把 dispatch 一起放进去 ——
  * 渲染器通过它把"玩家点了什么"回报给宿主。
  */
-function sessionContext() {
-  return { ...gameContext, dispatch, togglePause };
+function sessionContext(theme = null) {
+  return { ...gameContext, theme, dispatch, togglePause };
 }
 
 /**
@@ -580,27 +467,24 @@ function dispatch(action) {
 
 function updateStatus(force = false) {
   if (!active) return;
-  const engine = active.session.engine;
-
-  dialog.dataset.stage = active.paused ? 'paused' : engine.status;
-  const text = active.paused ? t('status.paused') : engine.message;
+  const { engine, paused } = active.session;
+  const stage = paused ? 'paused' : engine.status;
+  if (dialog.dataset.stage !== stage) dialog.dataset.stage = stage;
+  const text = paused ? t('status.paused') : engine.message;
   if (force || status.textContent !== text) status.textContent = text;
-  status.classList.toggle('fail', engine.status === ENGINE_STATUS.LOST);
+  const failed = engine.status === ENGINE_STATUS.LOST;
+  if (status.classList.contains('fail') !== failed) status.classList.toggle('fail', failed);
 
-  $('#hint-button').disabled = active.paused || engine.status !== ENGINE_STATUS.PLAYING;
-  $('#undo-button').disabled = active.paused || ![ENGINE_STATUS.PLAYING, ENGINE_STATUS.LOST].includes(engine.status)
+  const playing = engine.status === ENGINE_STATUS.PLAYING;
+  const hintDisabled = paused || !playing;
+  const undoDisabled = paused || (!playing && !failed)
     || (typeof engine.canUndo === 'function' ? !engine.canUndo()
       : (typeof engine.undos === 'number' && engine.undos >= 1)
         || (Array.isArray(engine.history) && !engine.history.length));
+  if (hintButton.disabled !== hintDisabled) hintButton.disabled = hintDisabled;
+  if (undoButton.disabled !== undoDisabled) undoButton.disabled = undoDisabled;
 
-  const fields = typeof engine.hud === 'function' ? engine.hud() : [];
-  const markup = fields.map(({ label, value, tone }) =>
-    `<div class="${tone && tone !== HUD_TONE.NORMAL ? `hud-${TONE_CLASS[tone]}` : ''}"><small>${label}</small><strong>${value}</strong></div>`).join('');
-  if (active.hudMarkup !== markup) {
-    $('#game-hud').style.setProperty('--hud-columns', Math.min(4, Math.max(1, fields.length)));
-    $('#game-hud').innerHTML = markup;
-    active.hudMarkup = markup;
-  }
+  updateHud(typeof engine.hud === 'function' ? engine.hud() : []);
 }
 
 /**
@@ -609,14 +493,18 @@ function updateStatus(force = false) {
  */
 function settle(outcome) {
   if (!outcome || !active) return;
+  stopAnimation();
   const record = progress[active.manifest.id][active.level];
   active.isBest = outcome.event === 'win' && outcome.score > record.score;
-  record.stars = Math.max(record.stars, outcome.stars);   // 星级只升不降
+  const stars = Math.max(record.stars, outcome.stars);
+  const starsChanged = stars !== record.stars;
+  record.stars = stars;
   record.score = Math.max(record.score, outcome.score);
   persist();
-  homeProgress();
-  renderCards();
-  renderPicker(active.manifest, active.level);
+  if (starsChanged) {
+    home.updateProgress(active.manifest.id);
+    renderPicker();
+  }
   playTone(outcome.event === 'win' ? 'win' : 'lose');
   if (outcome.event === 'win') triggerConfetti();
 
@@ -644,7 +532,7 @@ function renderResult(outcome) {
     : '';
   $('#result-panel').hidden = false;
   $('#result-panel').innerHTML = `<h3 class="result-title">${t(isFinal ? 'result.campaignComplete' : isWin ? 'result.cleared' : 'result.retryTitle')}</h3><div class="result-stars" aria-label="${t('dialog.starsLabel', { n: outcome.stars })}">${row.filled.join('')}<span>${row.empty.join('')}</span></div><div>${score}<p>${detail}</p>${active.isBest ? `<span class="record-badge">${t('result.newBest')}</span>` : ''}</div>`;
-  nextButton.hidden = !isWin || active.level >= levelCounts[active.manifest.id] - 1;
+  nextButton.hidden = !isWin || active.level >= active.manifest.levelCount - 1;
   startButton.hidden = false;
   startButton.innerHTML = `${t(isWin ? 'dialog.replay' : 'dialog.retry')} <span aria-hidden="true">↻</span>`;
   startButton.classList.toggle('primary', nextButton.hidden);
@@ -668,19 +556,23 @@ function resultDetail(engine) {
 
 /* ============================================================ 主循环 */
 
-/**
- * 只有引擎声明 timeDriven 的游戏才跑 rAF ——
- * 这是旧实现里 `if (active.id !== 'runner') return` 的契约化替代。
- */
-function animate(timestamp) {
-  if (!active || !active.session.isPlaying || !active.session.timeDriven) return;
-  const session = active.session;
-  const delta = previousTime ? (timestamp - previousTime) / 1000 : 0;
-  previousTime = timestamp;
+function stopAnimation() {
+  if (frame !== null) cancelAnimationFrame(frame);
+  frame = null;
+  previousTime = null;
+}
 
+function scheduleFrame() {
+  if (frame === null && active?.session.isPlaying && active.session.timeDriven) {
+    frame = requestAnimationFrame(animate);
+  }
+}
+
+function advanceFrame(delta) {
+  const { session } = active;
   session.advance(delta);
   session.renderer.draw(session.engine);
-  updateStatus();             // 文案未变化时内部不会触碰 DOM（含 live region）
+  updateStatus();
 
   const evt = session.engine.event;
   if (evt && evt.at !== active.lastHandledAt) {
@@ -691,44 +583,48 @@ function animate(timestamp) {
   }
 
   const outcome = session.poll();
-  if (outcome) {
-    settle(outcome);
-    return;                   // 结束即停止 rAF；渲染器保留最后一帧
-  }
-  frame = requestAnimationFrame(animate);
+  settle(outcome);
+  return Boolean(outcome);
+}
+
+function animate(timestamp) {
+  frame = null;
+  if (!active?.session.isPlaying || !active.session.timeDriven) return;
+  const delta = previousTime === null ? 0 : (timestamp - previousTime) / 1000;
+  previousTime = timestamp;
+  if (!advanceFrame(delta)) scheduleFrame();
 }
 
 function togglePause() {
   if (!active) return;
   if (!active.session.togglePause()) return;
-  active.paused = active.session.paused;
-  area.inert = active.paused;
-  $('#pause-overlay').hidden = !active.paused;
+  const { paused } = active.session;
+  area.inert = paused;
+  $('#pause-overlay').hidden = !paused;
   active.session.renderer.draw(active.session.engine);
   const button = area.querySelector('.runner-pause');
   if (button) {
-    button.textContent = t(active.paused ? 'dialog.resume' : 'dialog.pause');
-    button.setAttribute('aria-label', t(active.paused ? 'dialog.resumeLabel' : 'dialog.pauseLabel'));
+    button.textContent = t(paused ? 'dialog.resume' : 'dialog.pause');
+    button.setAttribute('aria-label', t(paused ? 'dialog.resumeLabel' : 'dialog.pauseLabel'));
   }
-  cancelAnimationFrame(frame);
-  previousTime = 0;
+  stopAnimation();
   updateStatus(true);
-  (active.paused ? $('#resume-game') : area).focus?.({ preventScroll: true });
-  if (!active.paused && active.session.timeDriven) frame = requestAnimationFrame(animate);
+  (paused ? $('#resume-game') : area).focus?.({ preventScroll: true });
+  scheduleFrame();
 }
 
 /* ============================================================ 顶部按钮 */
 
-$('#resume-game').addEventListener('click', () => { if (active?.paused) togglePause(); });
+$('#resume-game').addEventListener('click', () => { if (active?.session.paused) togglePause(); });
 
-$('#hint-button').addEventListener('click', () => {
-  if (!active || active.paused) return;
+hintButton.addEventListener('click', () => {
+  if (!active || active.session.paused) return;
   active.highlight = active.session.hint();
   active.session.renderer.draw(active.session.engine, { highlight: active.highlight });
   updateStatus(true);
 });
-$('#undo-button').addEventListener('click', () => {
-  if (!active || active.paused || !active.session.undo()) return;
+undoButton.addEventListener('click', () => {
+  if (!active || active.session.paused || !active.session.undo()) return;
   active.highlight = null;
   $('#result-panel').hidden = true;
   nextButton.hidden = true;
@@ -747,14 +643,11 @@ startButton.addEventListener('click', async () => {
   active.session.start();
   startButton.hidden = true;
   area.focus?.({ preventScroll: true });
-  previousTime = 0;
   active.session.renderer.draw(active.session.engine);
   updateStatus(true);
   settle(active.session.poll());
   dialog.scrollTop = 0;
-  // 调试出口：排查"点了开始但画面不动"这类问题时会用到
-  // （浏览器控制台执行 __dsh.debug() 可看到当前会话状态）
-  if (active.session.timeDriven) frame = requestAnimationFrame(animate);
+  scheduleFrame();
 });
 
 /**
@@ -776,20 +669,13 @@ window.__dsh = {
     return {
       gameId: s.gameId, level: s.level, status: s.engine.status, timeDriven: s.timeDriven,
       paused: s.paused, isPlaying: s.isPlaying, isOver: s.isOver, elapsed: s.elapsed,
-      frameScheduled: frame !== 0, message: s.engine.message,
+      frameScheduled: frame !== null, message: s.engine.message,
     };
   },
   debug() { console.table(this.state); return this.state; },
   /** 推进一帧（秒）。复用 animate 的核心步骤，不含 rAF 调度。 */
   step(delta = 0.1) {
-    if (!active || !active.session.isPlaying) return false;
-    const session = active.session;
-    session.advance(delta);
-    session.renderer.draw(session.engine);
-    updateStatus();
-    const outcome = session.poll();
-    if (outcome) { settle(outcome); updateStatus(true); return true; }
-    return false;
+    return active?.session.isPlaying ? advanceFrame(delta) : false;
   },
   /** 连续推进 seconds 秒（按 0.1 秒一帧），返回是否在过程中结算 */
   pump(seconds = 1) {
@@ -801,7 +687,7 @@ window.__dsh = {
 $('#restart').addEventListener('click', () => { if (active) startLevel(active.manifest, active.level); });
 nextButton.addEventListener('click', () => {
   if (!active || active.session.status !== ENGINE_STATUS.WON) return;
-  if (active.level < levelCounts[active.manifest.id] - 1) startLevel(active.manifest, active.level + 1);
+  if (active.level < active.manifest.levelCount - 1) startLevel(active.manifest, active.level + 1);
 });
 $('#close-game').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', event => {
@@ -811,7 +697,7 @@ dialog.addEventListener('click', event => {
 });
 dialog.addEventListener('close', () => {
   loadRequest++;
-  cancelAnimationFrame(frame);
+  stopAnimation();
   active?.session?.destroy();       // 必须解绑渲染器监听器，否则多次开关会持续累积
   active = null;
 });
@@ -858,24 +744,22 @@ function renderTopbarLanguage() {
 function onLanguageChanged() {
   soundLabel();
   renderTopbarLanguage();
-  renderCards();
-  homeProgress();
-  renderFooterYear();
+  home.translate();
   if (!active) return;
   $('#game-title').textContent = gameTitle(active.manifest);
   $('#game-category').textContent = `${active.manifest.order ?? '—'} / ${t(`nav.${active.manifest.category}`)}`;
   $('#game-instruction').textContent = t(active.manifest.controlsKey);
   $('#level-label').textContent = t('dialog.levelLabel', {
-    title: manifestTitles(active.manifest.id)[active.level] ?? '',
+    title: levelTitle(active.levels[active.level]),
     difficulty: difficultyLabel(active.session.engine.config?.difficulty),
   });
   $('.helper-tools > span').textContent = assistGoal(active.session.engine);
   startButton.innerHTML = `${t(active.session.status === ENGINE_STATUS.READY ? 'dialog.start' : 'dialog.again')} <span>${active.session.status === ENGINE_STATUS.READY ? '→' : '↻'}</span>`;
-  renderPicker(active.manifest, active.level);
-  active.session.renderer.draw(active.session.engine);
+  renderPicker();
+  active.session.renderer.draw(active.session.engine, { highlight: active.highlight });
   if (active.session.outcome) renderResult(active.session.outcome);
   const pauseButton = area.querySelector('.runner-pause');
-  if (pauseButton) pauseButton.textContent = t(active.paused ? 'dialog.resume' : 'dialog.pause');
+  if (pauseButton) pauseButton.textContent = t(active.session.paused ? 'dialog.resume' : 'dialog.pause');
   updateStatus(true);
 }
 
@@ -894,10 +778,7 @@ motion.addEventListener?.('change', () => {
 /**
  * 打开游戏的入口用**事件委托**，而不是给每个按钮单独绑定。
  *
- * 原因（真实踩过的坑）：卡片是 renderCards() 动态生成的，而卡片会在
- * 结算、切换语言、切换筛选时被重建。如果逐个 addEventListener，
- * 要么绑定时元素还不存在（点了没反应），要么重建后监听器丢失。
- * 委托一次绑定在稳定的祖先节点上，重建多少次都不会失效。
+ * 首页卡片和主视觉入口共用同一个监听器。
  */
 function delegateOpen(container) {
   if (!container) return;
@@ -911,7 +792,3 @@ function delegateOpen(container) {
 delegateOpen(document);
 
 renderTopbarLanguage();
-renderCards();
-renderFooterYear();
-homeProgress();
-onLocaleChange(() => { /* 语言变更已在 change 处理里完成重渲染 */ });

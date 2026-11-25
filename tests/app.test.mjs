@@ -9,6 +9,8 @@ import * as i18n from '../src/core/i18n.js';
 import { BUNDLES } from '../src/locales/index.js';
 import * as enums from '../src/core/enums.js';
 import * as labels from '../src/core/labels.js';
+import { mountHome } from '../src/ui/home.js';
+import { createGameHud } from '../src/ui/game-hud.js';
 import { MODULES } from '../games/index.js';
 import { screwRenderer, pinRenderer } from '../boards.mjs';
 import { solveScrews } from '../engine.mjs';
@@ -60,17 +62,16 @@ async function boot({ extra = [], saved = null, beforeLoad = async () => {} } = 
       i18n.applyToDocument(document);
       return changed;
     },
-    applyToDocument: (root = document) => i18n.applyToDocument(root),
-    onLocaleChange: () => () => {},
   };
   const imports = {
     './src/core/registry.js': { createRegistry },
     './src/core/lifecycle.js': { createSession },
     './games/index.js': { MODULES: moduleLoaders },
     './src/core/i18n.js': browserI18n,
-    './src/locales/index.js': { BUNDLES },
     './src/core/enums.js': enums,
     './src/core/labels.js': labels,
+    './src/ui/home.js': { mountHome },
+    './src/ui/game-hud.js': { createGameHud },
   };
   const window = { devicePixelRatio: 1 };
   const dynamicImports = [];
@@ -152,10 +153,18 @@ test('宿主：全部卡片与总进度由各自 manifest 驱动，切换语言�
       i18n.t('progress.completed', { n: 0, total: host.manifests.length }).replace(/<[^>]*>/g, ''));
   };
   assertCards('zh-CN');
+  const pinsCard = host.document.querySelector('.game-card[data-game="pins"]');
+  const search = host.document.querySelector('#search');
+  search.value = BUNDLES.en['game.pins.title'];
+  search.dispatchEvent({ type: 'input' });
+  assert.equal(pinsCard.hidden, false);
+  assert.equal(host.document.querySelector('#game-count').textContent, '01');
   const select = host.document.querySelector('#language-select');
   select.value = 'en';
   select.dispatchEvent({ type: 'change', bubbles: true });
   assertCards('en');
+  assert.equal(host.document.querySelector('.game-card[data-game="pins"]'), pinsCard);
+  assert.equal(host.document.querySelector('#game-count').textContent, '01');
   assert.deepEqual(host.loadCalls, [], '换语言也不应加载游戏代码');
 });
 
@@ -322,8 +331,15 @@ test('宿主：暂停遮罩阻止场景操作，继续后恢复且重开清除�
   const session = await host.open('runner');
   host.document.querySelector('#start-game').click();
   const area = host.document.querySelector('#play-area');
+  assert.equal(host.window.__dsh.state.frameScheduled, true);
+  const stat = host.document.querySelector('#game-hud strong');
+  session.engine.army += 3;
+  host.window.__dsh.step(0);
+  assert.equal(host.document.querySelector('#game-hud strong'), stat);
+  assert.equal(stat.textContent, String(session.engine.army));
   area.dispatchEvent({ type: 'keydown', key: ' ', bubbles: true });
   assert.equal(session.paused, true);
+  assert.equal(host.window.__dsh.state.frameScheduled, false);
   assert.equal(area.inert, true);
   assert.equal(host.document.querySelector('#pause-overlay').hidden, false);
   const side = session.engine.side;
@@ -331,20 +347,25 @@ test('宿主：暂停遮罩阻止场景操作，继续后恢复且重开清除�
   assert.equal(session.engine.side, side);
   host.document.querySelector('#resume-game').click();
   assert.equal(session.paused, false);
+  assert.equal(host.window.__dsh.state.frameScheduled, true);
   assert.equal(area.inert, false);
   area.dispatchEvent({ type: 'keydown', key: ' ', bubbles: true });
   host.document.querySelector('#restart').click();
   await host.waitFor(() => host.window.__dsh.session !== session && host.window.__dsh.session);
   assert.equal(host.document.querySelector('#pause-overlay').hidden, true);
   assert.equal(area.inert, false);
+  assert.equal(host.window.__dsh.state.frameScheduled, false);
 });
 
 test('宿主：解谜通关显示重玩与下一关，语言切换不重复结算', async () => {
   const host = await boot();
+  const card = host.document.querySelector('.game-card[data-game="water-sort"]');
   const session = await host.open('water-sort');
   host.document.querySelector('#start-game').click();
   for (const pair of [[0, 2], [1, 0], [1, 2]]) for (const i of pair) host.document.querySelector(`[data-water-tube="${i}"]`).click();
   assert.equal(session.status, 'won');
+  assert.equal(host.document.querySelector('.game-card[data-game="water-sort"]'), card);
+  assert.equal(card.querySelector('.badge').textContent, i18n.t('progress.levels', { n: 1, total: 6 }));
   const saved = host.storage.get('wande-dao-progress-v2');
   assert.equal(host.document.querySelector('#start-game').hidden, false);
   assert.equal(host.document.querySelector('#next-level').hidden, false);

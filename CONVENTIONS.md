@@ -34,6 +34,8 @@ src/
 │   └── multiplayer.js         多人契约（**仅预留，未实现**）
 ├── locales/                   zh-CN.js · en.js（键集必须完全一致）
 ├── storage/adapter.js         存储端口（**仅端口，适配器未实现**）
+├── ui/home.js                 首页卡片、搜索与进度展示
+├── ui/game-hud.js             游戏指标面板，按字段更新 DOM
 ├── ui/scene/primitives.js     ★ 共享 Canvas 绘制原语
 ├── ui/scene/three-models.js   ★ 共享 3D 运行时：模型 → sprite，无 WebGL 时降级
 ├── models/arcade-kit.js       ★ 共享低多边形模型库（MATERIALS / MODELS 数据）
@@ -49,7 +51,7 @@ games/
 
 public/assets/                 brand · art · audio/{bgm,sfx} · models（24 个 .glb + manifest.json）
 public/lib/                    three.mjs（vendored，构建期由 esbuild 生成，**运行时动态 import**）
-tests/                         153 项测试（见 §6）
+tests/                         154 项测试（见 §6）
 scripts/                       serve · build · balance · build-models
 docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 ```
@@ -256,7 +258,7 @@ v0.4 共 7 款游戏、45 关、135 星；新增关卡只追加，旧索引保�
 
 **改约定时必须同时改文档与测试** —— 否则 CI 会失败，这正是设计意图（见 [决策 D15](docs/DECISIONS.md)）。
 
-当前共 **153 项测试**（v0.4 包含七款游戏、模型资产、输入与宿主回归；文档漂移由 `tests/docs.test.mjs` 自动校验）。
+当前共 **154 项测试**（v0.4 包含七款游戏、模型资产、输入与宿主回归；文档漂移由 `tests/docs.test.mjs` 自动校验）。
 
 覆盖暂停/继续、失败撤销、重试与下一关、键盘/触控、射击同路强化及反挂机策略、光路求解、懒加载、语言切换与存档兼容。
 
