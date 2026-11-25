@@ -19,7 +19,7 @@
  */
 import { t, starRow } from '../../src/core/host-surface.js';
 import { rounded, label, polygon, verticalGradient } from '../../src/ui/scene/primitives.js';
-import { getSoldierSprite } from '../../src/ui/scene/three-models.js';
+import { getSoldierSprite, getAssetSprite } from '../../src/ui/scene/three-models.js';
 import RUNNER_LEVELS from './levels.js';
 
 export const LOGICAL_WIDTH = 480;
@@ -256,7 +256,7 @@ export function drawScene(ctx, state, { preview = false, clock = state.time || 0
     if (state.event?.type === 'gate' && state.time - state.event.at < 1.3) {
       const elapsed = state.time - state.event.at;
       ctx.globalAlpha = 1 - elapsed / 1.3;
-      label(ctx, `${state.event.gain >= 0 ? '+' : ''}${state.event.gain}`, center, 273 - elapsed * 27, 27, '#d8ff9a');
+      label(ctx, `${state.event.gain >= 0 ? '+' : ''}${state.event.gain}`, center, 273 - elapsed * 27, 27, state.event.gain < 0 ? '#ffad9c' : '#d8ff9a');
       label(ctx, t('game.runner.canvasLoss', { n: state.event.loss }), center, 292 - elapsed * 18, 11, '#ffbaaa');
       ctx.globalAlpha = 1;
     }
@@ -300,6 +300,10 @@ export function drawPreview(canvas, state, options = {}) {
  * 创建渲染器实例（GameRenderer 契约）。
  * @returns {import('../../src/core/contracts.js').GameRenderer}
  */
+const updateText = (element, value) => { if (element.textContent !== String(value)) element.textContent = value; };
+const updateAttribute = (element, key, value) => { if (element.getAttribute(key) !== String(value)) element.setAttribute(key, value); };
+const updateDisabled = (element, value) => { if (element.disabled !== value) element.disabled = value; };
+
 export default function createRenderer() {
   /** @type {HTMLCanvasElement|null} */
   let canvas = null;
@@ -310,6 +314,7 @@ export default function createRenderer() {
   let leftButton = null;
   let rightButton = null;
   let pauseButton = null;
+  let brief = null, phaseLabel = null, goalLabel = null, progressBar = null;
   let pointerId = null;
   let latestEngine = null;
   let generation = 0;
@@ -333,8 +338,9 @@ export default function createRenderer() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = board?.clientWidth || host.clientWidth || LOGICAL_WIDTH;
     const height = Math.round(width * LOGICAL_HEIGHT / LOGICAL_WIDTH);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
+    const pixelsWide = Math.round(width * dpr), pixelsHigh = Math.round(height * dpr);
+    if (canvas.width !== pixelsWide) canvas.width = pixelsWide;
+    if (canvas.height !== pixelsHigh) canvas.height = pixelsHigh;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
   }
@@ -348,7 +354,7 @@ export default function createRenderer() {
       translate = typeof ctx.t === 'function' ? ctx.t : t;
 
       const token = ++generation;
-      Promise.all([getSoldierSprite('#58c9ec'), getSoldierSprite('#f58a79')]).then(([player, enemy]) => {
+      Promise.all([getAssetSprite('scout-bot', '#58c9ec', 96, Math.PI), getSoldierSprite('#f58a79')]).then(([player, enemy]) => {
         if (token !== generation || !host) return;
         playerSprite = player; enemySprite = enemy;
         if (latestEngine) this.draw(latestEngine);
@@ -407,11 +413,19 @@ export default function createRenderer() {
       listen(canvas, 'pointercancel', event => { if (event.pointerId === pointerId) releasePointer(); });
       listen(canvas, 'lostpointercapture', event => { if (event.pointerId === pointerId) pointerId = null; });
       board.append(canvas, controls, pauseButton);
-      host.append(board);
+      brief = document.createElement('div'); brief.className = 'action-brief';
+      phaseLabel = document.createElement('strong'); phaseLabel.className = 'action-phase';
+      goalLabel = document.createElement('span'); goalLabel.className = 'action-goal';
+      progressBar = document.createElement('div'); progressBar.className = 'action-progress';
+      progressBar.setAttribute('role', 'progressbar'); progressBar.setAttribute('aria-valuemin', '0'); progressBar.setAttribute('aria-valuemax', '100');
+      brief.append(phaseLabel, goalLabel, progressBar);
+      host.append(board, brief);
       resize();
       // 用 ResizeObserver 而非 window.resize：宿主容器尺寸变化（如切换关卡重排）也能感知
-      this._observer = new ResizeObserver(() => { resize(); if (latestEngine) this.draw(latestEngine); });
-      this._observer.observe(host);
+      if (typeof ResizeObserver !== 'undefined') {
+        this._observer = new ResizeObserver(() => { resize(); if (latestEngine) this.draw(latestEngine); });
+        this._observer.observe(host);
+      }
       this.draw(engine);
     },
 
@@ -421,16 +435,36 @@ export default function createRenderer() {
       const ctx = canvas.getContext('2d');
       ctx.setTransform(canvas.width / LOGICAL_WIDTH, 0, 0, canvas.height / LOGICAL_HEIGHT, 0, 0);
       drawScene(ctx, engine, { reducedMotion: this._reducedMotion === true });
-      const canChoose = engine.status === 'playing' && engine.phase === 'run';
-      leftButton.disabled = !canChoose;
-      rightButton.disabled = !canChoose;
-      leftButton.setAttribute('aria-pressed', String(engine.side === 0));
-      rightButton.setAttribute('aria-pressed', String(engine.side === 1));
-      leftButton.textContent = translate('game.runner.leftGate');
-      rightButton.textContent = translate('game.runner.rightGate');
-      leftButton.setAttribute('aria-label', translate('game.runner.leftGate'));
-      rightButton.setAttribute('aria-label', translate('game.runner.rightGate'));
-      pauseButton.disabled = engine.status !== 'playing';
+      const canChoose = engine.status === 'playing' && !engine.paused && engine.phase === 'run';
+      if (!canChoose) releasePointer();
+      updateDisabled(leftButton, !canChoose);
+      updateDisabled(rightButton, !canChoose);
+      updateAttribute(leftButton, 'aria-pressed', engine.side === 0);
+      updateAttribute(rightButton, 'aria-pressed', engine.side === 1);
+      const next = engine.config.gates[engine.gate];
+      for (const [side, button] of [[0, leftButton], [1, rightButton]]) {
+        const sideName = translate(side === 0 ? 'game.runner.leftGate' : 'game.runner.rightGate');
+        const choice = next?.choices[side]?.join('');
+        updateText(button, choice ? `${side === 0 ? '←' : '→'} ${choice}` : sideName);
+        updateAttribute(button, 'aria-label', choice ? `${sideName} ${choice}` : sideName);
+      }
+      updateDisabled(pauseButton, engine.status !== 'playing');
+      updateText(pauseButton, translate(engine.paused ? 'dialog.resume' : 'dialog.pause'));
+      updateAttribute(pauseButton, 'aria-label', translate(engine.paused ? 'dialog.resumeLabel' : 'dialog.pauseLabel'));
+      updateAttribute(canvas, 'aria-label', translate('game.runner.canvasLabel'));
+      const phase = engine.status === 'won' ? translate('game.runner.canvasWin') : engine.status === 'lost' ? translate('game.runner.canvasLose')
+        : next ? translate('game.runner.nextGate', { n: engine.gate + 1, seconds: Math.max(0, Math.ceil(next.at - engine.time)) })
+        : translate('game.runner.finalApproach');
+      const goal = next ? translate('game.runner.guardCost', { n: next.enemy }) : translate('game.runner.bossGoal', { n: engine.config.boss });
+      if (phaseLabel.textContent !== phase) phaseLabel.textContent = phase;
+      if (goalLabel.textContent !== goal) goalLabel.textContent = goal;
+      const progress = engine.status === 'won' ? 100 : Math.min(100, Math.floor(engine.time / (engine.config.bossAt + 2.8) * 100));
+      if (progressBar.getAttribute('aria-valuenow') !== String(progress)) {
+        progressBar.style.setProperty('--progress', `${progress}%`);
+        progressBar.setAttribute('aria-valuenow', progress);
+      }
+      updateAttribute(progressBar, 'aria-label', translate('game.runner.routeProgress'));
+
     },
 
     /** 宿主可注入"减少动态效果"偏好；未注入时按 false 处理 */
@@ -452,7 +486,7 @@ export default function createRenderer() {
       board = null;
       leftButton = null;
       rightButton = null;
-      pauseButton = null;
+      pauseButton = null; brief = phaseLabel = goalLabel = progressBar = null;
     },
   };
 }

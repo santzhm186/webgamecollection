@@ -316,3 +316,77 @@ test('宿主：输入控件方向键不移动玩家，场景快捷键仍有效',
   host.document.querySelector('#play-area').dispatchEvent({ type: 'keydown', key: 'ArrowRight', bubbles: true, preventDefault() {} });
   assert.equal(calls, 1);
 });
+
+test('宿主：暂停遮罩阻止场景操作，继续后恢复且重开清除遮罩', async () => {
+  const host = await boot();
+  const session = await host.open('runner');
+  host.document.querySelector('#start-game').click();
+  const area = host.document.querySelector('#play-area');
+  area.dispatchEvent({ type: 'keydown', key: ' ', bubbles: true });
+  assert.equal(session.paused, true);
+  assert.equal(area.inert, true);
+  assert.equal(host.document.querySelector('#pause-overlay').hidden, false);
+  const side = session.engine.side;
+  area.dispatchEvent({ type: 'keydown', key: 'ArrowRight', bubbles: true });
+  assert.equal(session.engine.side, side);
+  host.document.querySelector('#resume-game').click();
+  assert.equal(session.paused, false);
+  assert.equal(area.inert, false);
+  area.dispatchEvent({ type: 'keydown', key: ' ', bubbles: true });
+  host.document.querySelector('#restart').click();
+  await host.waitFor(() => host.window.__dsh.session !== session && host.window.__dsh.session);
+  assert.equal(host.document.querySelector('#pause-overlay').hidden, true);
+  assert.equal(area.inert, false);
+});
+
+test('宿主：解谜通关显示重玩与下一关，语言切换不重复结算', async () => {
+  const host = await boot();
+  const session = await host.open('water-sort');
+  host.document.querySelector('#start-game').click();
+  for (const pair of [[0, 2], [1, 0], [1, 2]]) for (const i of pair) host.document.querySelector(`[data-water-tube="${i}"]`).click();
+  assert.equal(session.status, 'won');
+  const saved = host.storage.get('wande-dao-progress-v2');
+  assert.equal(host.document.querySelector('#start-game').hidden, false);
+  assert.equal(host.document.querySelector('#next-level').hidden, false);
+  assert.equal(host.document.querySelector('.result-title').textContent, BUNDLES['zh-CN']['result.cleared']);
+  const select = host.document.querySelector('#language-select');
+  select.value = 'en'; select.dispatchEvent({ type: 'change', bubbles: true });
+  assert.equal(host.document.querySelector('.result-title').textContent, BUNDLES.en['result.cleared']);
+  assert.equal(host.storage.get('wande-dao-progress-v2'), saved);
+});
+
+test('宿主：拉针失败显示重试，撤销恢复后移除失败操作', async () => {
+  const host = await boot();
+  const session = await host.open('pins');
+  host.document.querySelector('[data-pin="treasure"]').click();
+  assert.equal(session.status, 'lost');
+  assert.equal(host.document.querySelector('#start-game').hidden, false);
+  assert.equal(host.document.querySelector('#next-level').hidden, true);
+  host.document.querySelector('#undo-button').click();
+  assert.equal(session.status, 'playing');
+  assert.equal(host.document.querySelector('#result-panel').hidden, true);
+  assert.equal(host.document.querySelector('#start-game').hidden, true);
+});
+
+test('宿主：重试一次点击直接开局，不需要再次点击开始', async () => {
+  const host = await boot();
+  const session = await host.open('water-sort');
+  host.document.querySelector('#start-game').click();
+  for (const pair of [[0, 2], [1, 0], [1, 2]]) for (const i of pair) host.document.querySelector(`[data-water-tube="${i}"]`).click();
+  host.document.querySelector('#start-game').click();
+  await host.waitFor(() => host.window.__dsh.session !== session && host.window.__dsh.state?.status === 'playing');
+  assert.equal(host.window.__dsh.session.engine.moves, 0);
+  assert.equal(host.document.querySelector('#start-game').hidden, true);
+  assert.equal(host.document.querySelector('#result-panel').hidden, true);
+});
+
+test('宿主：换语言保留音效开关文案与真实状态一致', async () => {
+  const host = await boot();
+  const button = host.document.querySelector('#sound-toggle');
+  button.click();
+  assert.equal(button.getAttribute('aria-pressed'), 'true');
+  const select = host.document.querySelector('#language-select');
+  select.value = 'en'; select.dispatchEvent({ type: 'change', bubbles: true });
+  assert.equal(button.textContent, BUNDLES.en['dialog.soundOn']);
+  assert.equal(button.getAttribute('aria-pressed'), 'true');
+});

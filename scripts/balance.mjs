@@ -67,3 +67,47 @@ console.table(PIN_LEVELS.map((config, level) => {
   }
   return { 关卡: name(config), 全部顺序: orders.length, 安全顺序: winning, 三星顺序: threeStars };
 }));
+
+// New puzzle campaigns use their exact solvers, so star budgets stay reviewable.
+const { default: WaterSort } = await import('../games/water-sort/engine.js');
+const { default: waterLevels } = await import('../games/water-sort/levels.js');
+const { solve: solveWater } = await import('../games/water-sort/rules.js');
+console.log('彩液分装：最短路线与三星目标');
+console.table(waterLevels.map((config, level) => {
+  const game = new WaterSort(level), path = solveWater(game.tubes, config.capacity);
+  game.start(); path?.forEach(move => game.pour(...move));
+  if (game.stars !== 3) throw new Error(`water-sort ${level + 1} cannot reach three stars`);
+  return { 关卡: level + 1, 最短步数: path.length, 三星上限: config.steps, 三星可达: true };
+}));
+const { default: Warehouse } = await import('../games/warehouse/engine.js');
+const { default: warehouseLevels } = await import('../games/warehouse/levels.js');
+const { solveBoard } = await import('../games/warehouse/board.js');
+console.log('星港推箱：最短路线与三星目标');
+console.table(warehouseLevels.map((config, level) => {
+  const game = new Warehouse(level), path = solveBoard(game.board, game.player, game.boxes);
+  game.start(); path?.forEach(move => game.move(move));
+  if (game.stars !== 3) throw new Error(`warehouse ${level + 1} cannot reach three stars`);
+  return { 关卡: level + 1, 最短步数: path.length, 三星上限: config.steps, 三星可达: true };
+}));
+const { default: LightPath } = await import('../games/light-path/engine.js');
+const { default: lightLevels } = await import('../games/light-path/levels.js');
+const { solve: solveLight } = await import('../games/light-path/rules.js');
+console.log('光路工坊：最短旋转与三星目标');
+console.table(lightLevels.map((config, level) => {
+  const game = new LightPath(level), solution = solveLight(config);
+  game.start(); solution.moves.forEach(index => game.rotate(index));
+  if (game.stars !== 3) throw new Error(`light-path ${level + 1} cannot reach three stars`);
+  return { 关卡: level + 1, 最短旋转: solution.cost, 三星上限: game.target, 三星可达: true };
+}));
+const { default: Shooter } = await import('../games/shooter/engine.js');
+const { default: shooterLevels } = await import('../games/shooter/levels.js');
+console.log('火力防线：主动争取补给的通关策略');
+console.table(shooterLevels.map((config, level) => {
+  const game = new Shooter(level); game.start();
+  for (let frame = 0; frame < 7200 && game.status === 'playing'; frame++) {
+    const crate = game.entities.filter(item => item.kind === 'crate').sort((a, b) => b.z - a.z)[0];
+    game.chooseLane(crate?.lane ?? 1); game.tick(1 / 60);
+  }
+  if (game.stars !== 3) throw new Error(`shooter ${level + 1} cannot reach three stars`);
+  return { 关卡: level + 1, 秒数: Math.round(game.time), 强化: game.upgrades, 生命: game.health, 三星可达: true };
+}));

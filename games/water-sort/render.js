@@ -1,3 +1,4 @@
+import { pourAmount } from './rules.js';
 import { t as hostT } from '../../src/core/host-surface.js';
 
 const COLORS = ['#ff8779', '#60d4ee', '#f3c66b', '#b9a0f7', '#85ddbb'];
@@ -41,6 +42,7 @@ function tubeArt(tube, index, completed) {
 export default function createRenderer() {
   let host = null;
   let onPick = null;
+  let paintedEvent = null;
   let t = hostT;
   return {
     kind: 'dom',
@@ -62,18 +64,22 @@ export default function createRenderer() {
       if (!host) return;
       const activeElement = host.ownerDocument?.activeElement;
       const focusIndex = activeElement && host.contains(activeElement) ? activeElement.dataset?.waterTube : undefined;
+      const motion = engine.event && engine.event !== paintedEvent ? engine.event : null;
+      paintedEvent = engine.event;
       const tubes = engine.tubes.map((tube, index) => {
         const completed = tube.length === engine.config.capacity && tube.every(color => color === tube[0]);
         const selected = engine.selected === index;
         const source = engine.highlight?.[0] === index;
         const destination = engine.highlight?.[1] === index;
         const colors = tube.length ? [...tube].reverse().map(color => t(`game.water-sort.color${color}`)).join(' / ') : t('game.water-sort.tubeEmpty');
-        const stateKey = selected ? 'selected' : source ? 'source' : destination ? 'destination' : completed ? 'sorted' : null;
+        const choosing = engine.selected !== null && !selected;
+        const allowed = choosing && pourAmount(engine.tubes, engine.selected, index, engine.config.capacity) > 0;
+        const stateKey = selected ? 'selected' : source ? 'source' : destination ? 'destination' : choosing ? allowed ? 'canPour' : tube.length >= engine.config.capacity ? 'tubeFull' : 'wrongColor' : completed ? 'sorted' : null;
         const label = t('game.water-sort.tubeLabel', { n: index + 1, colors });
-        return `<button type="button" class="water-sort-tube${selected ? ' is-selected' : ''}${source || destination ? ' is-hinted' : ''}${completed ? ' is-complete' : ''}" data-water-tube="${index}" data-tube-count="${engine.tubes.length}" aria-pressed="${selected}" aria-label="${escapeHtml(label)}" ${engine.status !== 'playing' ? 'disabled' : ''}>
+        return `<button type="button" class="water-sort-tube${selected ? ' is-selected' : ''}${source || destination ? ' is-hinted' : ''}${completed ? ' is-complete' : ''}${allowed ? ' is-available' : ''}${choosing && !allowed ? ' is-unavailable' : ''}${motion?.from === index ? ' is-pouring' : ''}${motion?.to === index ? ' is-receiving' : ''}" data-water-tube="${index}" data-tube-count="${engine.tubes.length}" aria-pressed="${selected}" aria-label="${escapeHtml(label)}" aria-describedby="water-state-${index}" ${engine.status !== 'playing' ? 'disabled' : ''}>
           ${tubeArt(tube, index, completed)}
           <span class="water-sort-tube-number">${String(index + 1).padStart(2, '0')}</span>
-          <span class="water-sort-tube-state">${stateKey ? escapeHtml(t(`game.water-sort.${stateKey}`)) : '&nbsp;'}</span>
+          <span id="water-state-${index}" class="water-sort-tube-state">${stateKey ? escapeHtml(t(`game.water-sort.${stateKey}`)) : '&nbsp;'}</span>
         </button>`;
       }).join('');
       host.innerHTML = `<div class="water-sort-scene" role="group" aria-label="${escapeHtml(t('game.water-sort.sceneLabel'))}">
@@ -88,6 +94,7 @@ export default function createRenderer() {
       if (host) host.innerHTML = '';
       host = null;
       onPick = null;
+      paintedEvent = null;
       t = hostT;
     },
   };

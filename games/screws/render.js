@@ -40,7 +40,7 @@ export function screwBoard(engine, { prefix = 'screw-main', decorative = false, 
     <text x="240" y="22" text-anchor="middle" font-size="7" letter-spacing="2.5" fill="#b9c8bf" font-family="system-ui">${t('game.screws.canvasStorage')}</text>
     ${Array.from({ length: capacity }, (_, i) => { const x = left + i * 48 + 24; return `<rect x="${x - 18}" y="28" width="36" height="32" rx="8" fill="#152b34" stroke="${i < engine.slots.length ? '#cfcbb1' : '#6b817c'}" stroke-width="1.2"/>${i < engine.slots.length ? screwHead(x, 43, prefix, 10) : `<circle cx="${x}" cy="44" r="5" fill="none" stroke="#65817a77" stroke-dasharray="2 3"/>`}`; }).join('')}
     ${engine.plates.filter(p => !p.fallen || p.id === falling).map(p => `<g class="${p.id === falling ? 'falling-plate' : ''}" style="--angle:${p.angle}deg" transform="translate(${p.x} ${p.y}) rotate(${p.angle})" filter="url(#${prefix}-shadow)">
-      <rect x="${-p.width / 2}" y="-22" width="${p.width}" height="60" rx="13" fill="${['#3f627e', '#926b36', '#3f6c5d', '#905145', '#695381', '#486d72'][p.id]}"/>
+      <rect x="${-p.width / 2}" y="-22" width="${p.width}" height="60" rx="13" fill="${['#3f627e', '#926b36', '#3f6c5d', '#905145', '#695381', '#486d72'][p.id % 6]}"/>
       <rect x="${-p.width / 2}" y="-30" width="${p.width}" height="60" rx="13" fill="url(#${prefix}-plate-${p.id % metallic.length})" stroke="#e5e7cb55" stroke-width="1.5"/>
       <path d="M${-p.width / 2 + 13}-25h${p.width - 26}" stroke="#ffffe866" stroke-width="2.5" stroke-linecap="round"/>
       <path d="M${-p.width / 2 + 17} 21h${p.width - 34}" stroke="#233e4744" stroke-width="1.4"/>
@@ -49,9 +49,9 @@ export function screwBoard(engine, { prefix = 'screw-main', decorative = false, 
       ${p.removed.map((removed, end) => { const x = [-.37, .37, 0][end] * p.width; return `<circle cx="${x}" cy="1" r="12" fill="#183241" stroke="#122631" stroke-width="2"/>${removed ? `<circle cx="${x}" r="8" fill="#1c3541" stroke="#718c8b88"/>` : screwHead(x, 0, prefix)}`; }).join('')}
     </g>`).join('')}
     ${engine.status === 'won' ? `<g fill="#e4e6a1"><path d="M216 202l16 16 35-39" fill="none" stroke="#d1e894" stroke-width="7" stroke-linecap="round"/><text x="240" y="252" text-anchor="middle" font-family="system-ui" font-size="18" letter-spacing="2">${t('game.screws.sceneWin')}</text></g>` : ''}
-    </svg>${decorative ? '' : engine.plates.filter(p => !p.fallen).map(p => p.removed.map((removed, end) => { if (removed) return ''; const pos = screwPosition(p, end), available = engine.available(p.id, end); return `<button class="screw-target ${highlight?.[0] === p.id && highlight?.[1] === end ? 'hint-glow' : ''}" data-plate="${p.id}" data-end="${end}" style="left:${pos.x / 480 * 100}%;top:${pos.y / 420 * 100}%;z-index:${p.id + 4}" ${available ? '' : 'disabled'} aria-label="${t('game.screws.plateLabel', { n: p.id + 1, end: screwEndLabel(end) })}"></button>`; }).join('')).join('')}
+    </svg>${decorative ? '' : engine.plates.filter(p => !p.fallen).map(p => p.removed.map((removed, end) => { if (removed) return ''; const pos = screwPosition(p, end), available = engine.available(p.id, end), release = p.removed.filter(value => !value).length === 1; return `<button class="screw-target ${available ? release ? 'screw-release' : 'screw-ready' : ''} ${highlight?.[0] === p.id && highlight?.[1] === end ? 'hint-glow' : ''}" data-plate="${p.id}" data-end="${end}" style="left:${pos.x / 480 * 100}%;top:${pos.y / 420 * 100}%;z-index:${p.id + 4}" ${available ? '' : 'disabled'} aria-label="${t('game.screws.plateLabel', { n: p.id + 1, end: screwEndLabel(end) })}"></button>`; }).join('')).join('')}
     ${engine.status === 'lost' ? `<div class="scene-result failed-result"><span>${t('game.screws.sceneFail')}</span><small>${t('game.screws.sceneFailHint')}</small></div>` : ''}
-  </div>`;
+  </div>${decorative ? '' : `<div class="puzzle-readout screw-readout ${engine.slots.length >= engine.config.capacity - 1 ? 'is-tight' : ''}"><span>${t(engine.slots.length >= engine.config.capacity - 1 ? 'game.screws.slotWarning' : 'game.screws.releaseGuide')}</span><b>${t('game.screws.freeSlots', { n: Math.max(0, engine.config.capacity - engine.slots.length) })}</b></div>`}`;
 }
 
 export function createRenderer() {
@@ -70,7 +70,7 @@ export function createRenderer() {
       host.innerHTML = screwBoard(engine, { prefix: this._prefix });
       onClick = event => {
         const button = event.target.closest?.('[data-plate]');
-        if (!button || button.disabled) return;
+        if (!button || !host?.contains(button) || button.disabled) return;
         ctx?.dispatch?.({
           type: 'remove',
           args: [Number(button.dataset.plate), Number(button.dataset.end)],
@@ -87,11 +87,13 @@ export function createRenderer() {
       const selector = '[data-plate]';
       const buttons = [...host.querySelectorAll(selector)];
       const index = buttons.indexOf(focused);
+      const focusedPlate = focused?.dataset?.plate, focusedEnd = focused?.dataset?.end;
       host.innerHTML = screwBoard(engine, { prefix: this._prefix, ...options });
       if (index >= 0) {
         const next = [...host.querySelectorAll(selector)];
-        const candidate = next[index];
-        (candidate && !candidate.disabled ? candidate : next.find((button, i) => i >= index && !button.disabled) ?? next.find(button => !button.disabled))?.focus?.({ preventScroll: true });
+        const candidate = next.find(button => button.dataset.plate === focusedPlate && button.dataset.end === focusedEnd);
+        const samePlate = next.find(button => button.dataset.plate === focusedPlate && !button.disabled);
+        (candidate && !candidate.disabled ? candidate : samePlate ?? next.find((button, i) => i >= index && !button.disabled) ?? next.find(button => !button.disabled))?.focus?.({ preventScroll: true });
       }
     },
 

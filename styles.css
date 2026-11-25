@@ -93,3 +93,74 @@ html[lang="en"] .hero-spark{right:0;top:-8px}
   z-index: 99;
   border-radius: inherit;
 }
+
+/* A dedicated play space keeps controls and recovery within reach. */
+.play-layout { display:grid; gap:20px; align-items:start; }
+.play-stage-wrap { position:relative; min-width:0; }
+#play-area { outline:none; }
+.play-sidebar { min-width:0; }
+.play-guide-label { font-size:10px; font-weight:800; letter-spacing:.12em; color:#81906b; margin-bottom:9px; }
+.play-sidebar .game-instruction { margin:0 0 16px; font-size:12px; line-height:1.85; color:#48604d; }
+.play-sidebar .helper-tools { flex-wrap:wrap; justify-content:flex-start; gap:8px; border-block:1px solid #dce3d1; padding:14px 0; margin-bottom:14px; }
+.play-sidebar .helper-tools > span { flex-basis:100%; max-width:none; order:3; font-size:11px; line-height:1.7; text-align:left; margin:4px 0 0; }
+.play-sidebar .helper-tools > button { min-height:44px; padding:9px 13px; font-size:12px; }
+.play-sidebar .game-status { font-size:12px; line-height:1.85; min-height:60px; padding:12px 14px; margin:0 0 14px; background:#eaf0df; border-radius:12px; }
+.play-sidebar .game-status.fail { background:#f5e6dc; color:#8a463a; }
+.play-sidebar .game-actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
+.play-sidebar .game-actions > button { flex:1; min-height:46px; white-space:nowrap; }
+.play-sidebar .result-panel { flex-wrap:wrap; gap:9px 16px; text-align:center; padding:17px 14px; border-radius:14px; }
+.result-title { flex-basis:100%; margin:0 0 3px; font-size:17px; color:#294936; }
+.play-sidebar .result-panel p { font-size:11px; line-height:1.7; }
+.record-badge { display:inline-block; font-size:10px; font-weight:700; padding:4px 9px; background:#d4e6a2; border-radius:6px; margin-top:7px; }
+.pause-overlay { position:absolute; inset:0; z-index:30; border-radius:14px; background:#113a31ef; backdrop-filter:blur(7px); color:#f1f3de; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center; }
+.pause-symbol { display:grid; place-items:center; width:58px; height:58px; border:1px solid #9bba7c77; border-radius:18px; color:#d5ef95; font-size:26px; }
+.pause-overlay h3 { font-size:22px; margin:22px 0 12px; }
+.pause-overlay p { max-width:260px; font-size:12px; color:#bdd1bb; line-height:1.8; margin:0 0 25px; }
+.pause-overlay .primary { color:#173c31; background:#d7ef9b; min-height:46px; }
+#game-dialog button:focus-visible, #game-dialog a:focus-visible { outline:3px solid #638244; outline-offset:3px; }
+@media(min-width:1000px) {
+  #game-dialog { width:min(1030px,calc(100% - 64px)); padding:24px 28px; max-height:94dvh; }
+  .play-layout { grid-template-columns:minmax(0,1fr) 290px; gap:28px; }
+  .play-stage-wrap .scene,.play-stage-wrap .runner-board { max-width:100%; }
+  .play-stage-wrap { max-width:600px; }
+  #game-dialog .game-hud { margin-bottom:16px; }
+  #game-dialog .level-picker { margin-top:12px; }
+  .play-sidebar { position:sticky; top:0; }
+}
+@media(max-width:999px) {
+  .play-layout { gap:15px; }
+  .play-stage-wrap { width:100%; }
+  .play-sidebar .play-guide-label { display:none; }
+  .play-sidebar .game-instruction { margin-bottom:10px; font-size:11px; }
+  .play-sidebar .helper-tools { padding:10px 0; margin-bottom:10px; }
+  .play-sidebar .game-status { min-height:0; margin-bottom:10px; padding:10px 12px; }
+  .play-sidebar .game-actions { position:sticky; bottom:-18px; background:#f5f5ed; z-index:31; padding:10px 0; }
+}
+@media(min-width:1000px) {
+  #game-dialog { padding:18px 24px; }
+  #game-dialog .game-toolbar { padding:5px 0; }
+  #game-dialog .game-toolbar button { min-height:30px; }
+  #game-dialog .game-hud { padding:7px 0; margin-bottom:12px; }
+  #game-dialog .play-stage-wrap .scene { max-width:min(100%,max(280px,calc((94dvh - 300px) * 480 / 420))); margin-inline:auto; }
+  #game-dialog .play-stage-wrap .runner-board { max-width:min(100%,max(280px,calc((94dvh - 370px) * 480 / 420))); margin-inline:auto; }
+  #game-dialog .action-brief { max-width:min(100%,max(280px,calc((94dvh - 370px) * 480 / 420))); }
+}
+@media(min-width:1000px) {
+  #game-dialog .light-path-scene { width:min(100%,470px,max(300px,calc(94dvh - 365px))); }
+  #game-dialog .warehouse-board { max-height:max(240px,calc(94dvh - 410px)); }
+  #game-dialog .warehouse-scene { max-width:520px; margin-inline:auto; }
+}
+#game-dialog .warehouse-pad { grid-template-columns:repeat(3,44px); grid-template-rows:repeat(2,44px); }
+@media(max-width:999px) {
+  #game-dialog .dialog-heading { position:sticky; top:-18px; z-index:40; padding-top:8px; padding-bottom:10px; background:#f5f5ed; box-shadow:0 8px 12px #f5f5ed; }
+}
+@media(max-width:999px) {
+  #game-dialog[data-stage='ready'] .play-layout { display:flex; flex-direction:column; }
+  #game-dialog[data-stage='ready'] .play-sidebar { display:contents; }
+  #game-dialog[data-stage='ready'] .game-actions { order:-1; position:static; width:100%; margin:0; padding:0; }
+}
+#game-dialog[data-stage='won'] .play-guide-label,
+#game-dialog[data-stage='won'] .game-instruction,
+#game-dialog[data-stage='won'] .helper-tools,
+#game-dialog[data-stage='lost'] .play-guide-label,
+#game-dialog[data-stage='lost'] .game-instruction { display:none; }

@@ -12,7 +12,7 @@ export default {
   cardMetaKey: 'game.shooter.cardMeta',
   artLabelKey: 'game.shooter.artLabel',
   hostApi: '^1.0.0',
-  engineVersion: '1.0.0',
+  engineVersion: '1.2.0',
   timeDriven: true,
   levels: () => import('./levels.js'),
   engine: () => import('./engine.js'),

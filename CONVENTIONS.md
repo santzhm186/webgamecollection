@@ -44,11 +44,12 @@ games/
 ├── README.md                  贡献者契约
 ├── _template/                 脚手架（可改名即用，自带 11 项测试）
 ├── runner/  pins/  screws/     manifest / engine / render / levels / assets
+├── light-path/                光路工坊：旋转线路、固定线路与中继目标
 ├── water-sort/  warehouse/  shooter/   同上 + 各自 style.css / board.js（视玩法而定）
 
 public/assets/                 brand · art · audio/{bgm,sfx} · models（24 个 .glb + manifest.json）
 public/lib/                    three.mjs（vendored，构建期由 esbuild 生成，**运行时动态 import**）
-tests/                         125 项测试（见 §6）
+tests/                         153 项测试（见 §6）
 scripts/                       serve · build · balance · build-models
 docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 ```
@@ -126,7 +127,7 @@ docs/                          架构 · 决策 · 命名 · 协作 · 迁移
 | --- | --- | --- | --- | --- |
 | 闭合枚举 | [`src/core/enums.js`](src/core/enums.js) | 宿主判断用的机器值（14 组，见 §4.5） | 只有宿主，算契约变更 | 枚举测试 |
 | 共用显示文案 | [`src/core/labels.js`](src/core/labels.js) | 难度、分类名、星级图形、语气 | 宿主（PR 审核） | 单元测试 |
-| 多语言文案 | [`src/locales/*.js`](src/locales/) | **所有面向玩家的字符串**（当前 341 键 × 2 语言，覆盖 6 个游戏） | 任何人，但须补全所有语言 | T1 / T3 / T4 |
+| 多语言文案 | [`src/locales/*.js`](src/locales/) | **所有面向玩家的字符串**（当前 444 键 × 2 语言，覆盖 7 个游戏） | 任何人，但须补全所有语言 | T1 / T3 / T4 |
 | 游戏私有字典 | `games/<id>/dictionary.js` | 只有这个游戏认识的词汇与几何 | 该游戏贡献者 | T3 / T5 |
 
 ### 4.1 文案键的 area 白名单
@@ -217,7 +218,7 @@ export const dictionaryKeys = Object.freeze([...Object.values(PIN_LABEL_KEYS)]);
 | **本地榜必须诚实标注** | 纯静态下只有自己一条记录，UI 不得假装有他人排名 |
 | **进度键位由注册表驱动** | 新增游戏自动获得进度槽位，不必改 `app.mjs` |
 
-v0.3 共 6 款游戏、38 关、114 星；新增关卡只追加，旧索引保持不变。`assistGoal()` 与 `canUndo()` 是可选引擎能力，宿主优先采用。3D 定义见 [资产说明](src/models/README.md)。
+v0.4 共 7 款游戏、45 关、135 星；新增关卡只追加，旧索引保持不变。`assistGoal()` 与 `canUndo()` 是可选引擎能力，宿主优先采用。3D 定义见 [资产说明](src/models/README.md)。
 
 **当前存储键（P1 收口前）**：`wande-dao-progress-v2` · `wande-dao-completed`（旧版迁移）·
 `wande-dao-sound` · `wande-dao-locale`。迁移规则见 [迁移映射](docs/MIGRATION-MAP.md) §5。
@@ -255,9 +256,9 @@ v0.3 共 6 款游戏、38 关、114 星；新增关卡只追加，旧索引保�
 
 **改约定时必须同时改文档与测试** —— 否则 CI 会失败，这正是设计意图（见 [决策 D15](docs/DECISIONS.md)）。
 
-当前共 **125 项测试**（v0.3 增加了 3 个新游戏、模型资产与宿主回归用例；文档漂移由 `tests/docs.test.mjs` 自动校验），按职责分布：
-字典与约定 29 · 注册表与会话 14 · 注册表加载 4 · 宿主交互 9 · 冲关输入 4 · 文档校验 8 · 模型资产 4 ·
-玩法（6 个游戏）42 · 模板脚手架 11。
+当前共 **153 项测试**（v0.4 包含七款游戏、模型资产、输入与宿主回归；文档漂移由 `tests/docs.test.mjs` 自动校验）。
+
+覆盖暂停/继续、失败撤销、重试与下一关、键盘/触控、射击同路强化及反挂机策略、光路求解、懒加载、语言切换与存档兼容。
 
 ---
 
@@ -325,7 +326,7 @@ v0.3 共 6 款游戏、38 关、114 星；新增关卡只追加，旧索引保�
 
 | 阶段 | 状态 |
 | --- | --- |
-| P0 字典与命名统一 | ✅ 已完成（4 层字典、341 键 × 2 语言、14 组枚举） |
+| P0 字典与命名统一 | ✅ 已完成（4 层字典、444 键 × 2 语言、14 组枚举） |
 | P0 契约层 + 存储端口 | ✅ 已定义；⏳ 适配器与 `ScoreStore` / `ProgressStore` 未实现 |
 | P3 宿主框架 + runner 迁移 | ✅ 已完成（注册表、会话、浏览器验收通过） |
 | P1 存储收口（5 处 `localStorage` 改走适配器） | ⏳ 未开始 |

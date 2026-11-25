@@ -1,5 +1,6 @@
 import { t as hostT } from '../../src/core/host-surface.js';
 import LEVELS from './levels.js';
+import { SHOT_PATTERNS } from './weapons.js';
 
 export const STEP = 1 / 60;
 const SHOT_INTERVALS = [24, 18, 12, 8];
@@ -15,9 +16,10 @@ export default class Shooter {
     this.frame = 0; this.time = 0; this.accumulator = 0;
     this.lane = 1; this.x = 1; this.health = 3; this.shield = 0;
     this.spread = 0; this.rate = 0; this.upgrades = 0; this.kills = 0; this.leaked = 0;
-    this.wave = 0; this.nextId = 1; this.nextShot = 0;
+    this.wave = 0; this.nextId = 1; this.nextShot = 0; this.lastShot = -100;
     this.entities = []; this.bullets = []; this.effects = []; this.trace = [];
     this.bossDefeated = false; this.event = null;
+    this.lastUpgrade = null; this.lastDamage = null;
     this.message = this.t('game.shooter.intro', { n: this.config.starUpgrades });
   }
 
@@ -68,20 +70,26 @@ export default class Shooter {
       if (wave.kind === 'boss') this.message = this.t('game.shooter.bossIncoming');
     }
     if (this.frame >= this.nextShot) {
-      const offsets = this.spread ? [-1, 0, 1] : [0];
-      for (const offset of offsets) {
-        const x = this.x + offset;
-        if (x >= -.15 && x <= 2.15) this.bullets.push({ x, z: .88, damage: this.spread >= 2 ? 2 : 1 });
+      this.lastShot = this.frame;
+      const lane = Math.round(this.x);
+      for (const offset of SHOT_PATTERNS[this.spread]) {
+        const x = Math.max(lane - .24, Math.min(lane + .24, this.x + offset));
+        this.bullets.push({ x, lane, z: .88, damage: 1 });
       }
       this.nextShot = this.frame + SHOT_INTERVALS[this.rate];
     }
     this.entities.forEach(entity => { entity.z += entity.speed * STEP; });
     for (const bullet of this.bullets) {
       const before = bullet.z; bullet.z -= 1.5 * STEP;
-      const target = this.entities.filter(entity => entity.hp > 0 && Math.abs(entity.lane - bullet.x) < .27 && entity.z >= bullet.z - .035 && entity.z <= before + .035)
-        .sort((a, b) => b.z - a.z)[0];
+      // Swept collision: select the nearest intersected target without per-shot arrays.
+      let target = null;
+      for (const entity of this.entities) {
+        if (entity.hp > 0 && entity.lane === bullet.lane && Math.abs(entity.lane - bullet.x) < .27 && entity.z >= bullet.z - .035 && entity.z <= before + .035
+          && (!target || entity.z > target.z)) target = entity;
+      }
       if (!target) continue;
-      target.hp -= bullet.damage; target.hitAt = this.frame; bullet.z = -1;
+      bullet.z = -1;
+      target.hp -= bullet.damage; target.hitAt = this.frame;
       if (target.hp <= 0) this.destroyTarget(target);
     }
     this.bullets = this.bullets.filter(bullet => bullet.z > 0);
@@ -90,10 +98,12 @@ export default class Shooter {
       entity.hp = 0;
       if (entity.kind === 'crate') continue;
       this.leaked++;
+      const protectedByShield = entity.kind !== 'boss' && this.shield > 0;
       if (entity.kind === 'boss') { this.health = 0; }
       else if (this.shield) { this.shield--; }
       else { this.health--; }
       this.event = { type: 'damage', at: this.frame };
+      this.lastDamage = { at: this.frame, shield: protectedByShield };
       this.message = this.t('game.shooter.breach');
       if (this.health <= 0) {
         this.health = 0; this.status = 'lost'; this.message = this.t('game.shooter.lost'); break;
@@ -117,6 +127,7 @@ export default class Shooter {
       if (target.upgrade === 'rate') this.rate = Math.min(3, this.rate + 1);
       if (target.upgrade === 'shield') this.shield = Math.min(3, this.shield + 1);
       this.event = { type: 'upgrade', upgrade: target.upgrade, at: this.frame };
+      this.lastUpgrade = { ...this.event };
       this.message = this.t('game.shooter.upgraded', { upgrade: this.t(`game.shooter.${target.upgrade}`) });
     } else {
       this.kills++;
@@ -131,7 +142,7 @@ export default class Shooter {
     return [
       { label: this.t('game.shooter.health'), value: `${this.health} / 3`, tone: this.health < 2 ? 'warn' : 'normal' },
       { label: this.t('game.shooter.firepower'), value: `${this.spread + 1} · ${this.rate + 1}` },
-      { label: this.t('game.shooter.upgrades'), value: `${this.upgrades} / ${this.config.starUpgrades}`, tone: this.upgrades >= this.config.starUpgrades ? 'good' : 'normal' },
+      { label: this.t('game.shooter.upgrades'), value: `${Math.min(this.upgrades, this.config.starUpgrades)} / ${this.config.starUpgrades}${this.upgrades >= this.config.starUpgrades ? ' ✓' : ''}`, tone: this.upgrades >= this.config.starUpgrades ? 'good' : 'normal' },
       { label: this.t('game.shooter.shield'), value: this.shield },
     ];
   }

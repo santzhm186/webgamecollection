@@ -53,6 +53,7 @@ export default class Runner {
     this.position = .25;        // 队伍横向位置（0..1），渲染层只读
 
     this.gate = 0;              // 已通过的门数
+    this.paused = false;
     this.status = 'ready';      // ready → playing → won | lost
     this.phase = 'run';         // run → boss
     this.stars = 0;
@@ -65,11 +66,27 @@ export default class Runner {
     this.message = this.t('game.runner.intro', { boss: this.config.boss });
   }
 
-  start() { if (this.status === 'ready') this.status = 'playing'; }
+  start() {
+    if (this.status !== 'ready') return false;
+    this.status = 'playing';
+    return true;
+  }
+
+  pause() {
+    if (this.status !== 'playing' || this.paused) return false;
+    this.paused = true;
+    return true;
+  }
+
+  resume() {
+    if (!this.paused) return false;
+    this.paused = false;
+    return true;
+  }
 
   /** 统一的选门操作：规则层拒绝非法输入和不能再选门的状态。 */
   chooseSide(side) {
-    if (this.status !== 'playing' || this.phase !== 'run' || (side !== 0 && side !== 1)) return false;
+    if (this.status !== 'playing' || this.paused || this.phase !== 'run' || (side !== 0 && side !== 1)) return false;
     this.side = side;
     return true;
   }
@@ -81,7 +98,7 @@ export default class Runner {
    * @param {number} delta 秒
    */
   tick(delta) {
-    if (this.status !== 'playing') return;
+    if (this.status !== 'playing' || this.paused) return;
     const dt = Number.isFinite(delta) ? Math.max(0, Math.min(delta, .1)) : 0;
     this.time += dt;
     // 指数趋近目标侧门：帧率无关（不用线性插值，否则不同刷新率手感不同）

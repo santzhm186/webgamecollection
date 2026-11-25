@@ -175,3 +175,45 @@ test('runner 渲染输入：暂停按钮调用宿主，重挂载与销毁释放�
     assert.equal(nextHost.children.length, 0);
   });
 });
+
+test('runner 暂停：冻结时间与选门，释放拖动，恢复后继续原进度', () => {
+  withBrowser(({ host }) => {
+    const engine = new Runner(), renderer = createRenderer();
+    engine.start(); engine.tick(.1);
+    renderer.mount(host, engine, { dispatch: action => engine[action.type](...action.args) });
+    const canvas = host.querySelector('canvas');
+    canvas.dispatchEvent({ type: 'pointerdown', clientX: 300, pointerId: 12, button: 0, isPrimary: true });
+    assert.equal(engine.side, 1);
+    assert.ok(canvas.captured.has(12));
+    assert.equal(engine.pause(), true);
+    const frozen = { time: engine.time, position: engine.position, army: engine.army, side: engine.side };
+    engine.tick(.1); assert.equal(engine.chooseSide(0), false);
+    renderer.draw(engine);
+    assert.equal(canvas.captured.size, 0);
+    assert.equal(host.querySelector('[data-runner-side="0"]').disabled, true);
+    assert.deepEqual({ time: engine.time, position: engine.position, army: engine.army, side: engine.side }, frozen);
+    assert.equal(engine.resume(), true); renderer.draw(engine); engine.tick(.1);
+    assert.ok(engine.time > frozen.time);
+    assert.equal(host.querySelector('[data-runner-side="0"]').disabled, false);
+    renderer.destroy();
+  });
+});
+
+test('runner 渲染稳定性：连续帧保留控件文本节点，同尺寸观察不重置画布', () => {
+  withBrowser(({ host, observers }) => {
+    const engine = new Runner(), renderer = createRenderer(); engine.start();
+    renderer.mount(host, engine);
+    const button = host.querySelector('[data-runner-side="0"]');
+    const label = button.childNodes[0];
+    const phase = host.querySelector('.action-phase').childNodes[0];
+    for (let i = 0; i < 20; i++) renderer.draw(engine);
+    assert.equal(button.childNodes[0], label);
+    assert.equal(host.querySelector('.action-phase').childNodes[0], phase);
+    const canvas = host.querySelector('canvas'); let resets = 0;
+    const width = canvas.width;
+    Object.defineProperty(canvas, 'width', { get: () => width, set: () => resets++ });
+    observers[0].callback();
+    assert.equal(resets, 0);
+    renderer.destroy();
+  });
+});

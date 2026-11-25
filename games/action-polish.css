@@ -1,0 +1,20 @@
+/* Action controls sit below the field so thumbs never cover the player. */
+.runner-board { aspect-ratio: auto; }
+.runner-board .touch-controls { position: relative; inset: auto; display: flex; gap: 8px; padding: 10px 12px; background: #102f38; }
+.runner-board .touch-controls button { flex: 1; width: auto; height: 44px; min-height: 44px; border: 1px solid #709d99; border-radius: 9px; color: #e4f5d8; background: #21444b; font-size: 13px; font-weight: 750; }
+.runner-board .touch-controls button[aria-pressed='true'] { color: #193c33; background: #d5ee99; border-color: #e4f3b5; }
+.runner-board .touch-controls button:disabled { opacity: .45; }
+.runner-board .touch-controls button:focus-visible { outline: 3px solid #f9d58c; outline-offset: 2px; }
+.runner-board .touch-controls button:active:not(:disabled) { background: #426a61; color: #fff; }
+.action-brief { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; margin: 9px auto 0; max-width: calc(48dvh * 480 / 420); padding: 11px 13px; border: 1px solid #d5dfc9; border-radius: 10px; background: #eaf0df; color: #355745; }
+.action-phase { font-size: 11px; font-weight: 750; }
+.action-goal { font-size: 10px; color: #61715b; text-align: right; }
+.action-progress { grid-column: 1 / -1; height: 5px; background: #d3dec6; border-radius: 5px; overflow: hidden; }
+.action-progress:before { content: ''; display: block; height: 100%; width: var(--progress, 0%); background: #77994e; border-radius: inherit; }
+.action-brief.is-danger { background: #fff0df; border-color: #e9cba5; }
+.action-brief.is-danger .action-progress:before { background: #c87f59; }
+@media (max-width: 760px) {
+  .action-brief { max-width: 100%; }
+  .runner-board .touch-controls { padding: 8px; gap: 6px; }
+  .runner-board .touch-controls button { font-size: 11px; }
+}

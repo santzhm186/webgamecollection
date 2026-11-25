@@ -54,26 +54,33 @@ function wall(index) {
     ${index % 3 === 0 ? '<rect x="25" y="29" width="14" height="3" rx="1.5" fill="#75ceb6" opacity=".55"/>' : ''}`;
 }
 
-function boardMarkup(engine, images, t) {
+function boardMarkup(engine, images, t, motion) {
   const { width, height, walls, goals } = engine.board;
+  const dx = motion ? (motion.from % width - motion.to % width) * 64 : 0;
+  const dy = motion ? (Math.floor(motion.from / width) - Math.floor(motion.to / width)) * 64 : 0;
+  const moving = (content, active) => `<g class="${active ? 'warehouse-moving' : ''}" style="--move-x:${dx}px;--move-y:${dy}px">${content}</g>`;
+  const actors = [];
+  // Floors render first so a walking robot is never covered by a later tile.
   const tiles = Array.from({ length: width * height }, (_, index) => {
     const x = index % width * 64, y = Math.floor(index / width) * 64;
     const isWall = walls.includes(index), isDock = goals.includes(index), isBox = engine.boxes.includes(index);
+    if (isBox) actors.push(`<g transform="translate(${x} ${y})"><g class="${engine.deadSquares.has(index) ? 'warehouse-trapped' : ''}">${moving(cargoCrate(isDock, isDock ? images.dockedCrate ?? images.crate : images.crate), motion?.boxTo === index)}</g>
+      ${motion?.boxTo === index && isDock ? '<circle class="warehouse-dock-spark" cx="32" cy="32" r="25" fill="none" stroke="#c7ffb0" stroke-width="3"/>' : ''}</g>`);
+    if (engine.player === index) actors.push(`<g transform="translate(${x} ${y})">${moving(cargoBot(engine.direction, images.bot ?? images.botDirections?.[engine.direction]), !!motion)}</g>`);
     return `<g transform="translate(${x} ${y})">
       ${isWall ? wall(index) : `<rect x="1" y="1" width="62" height="62" rx="5" fill="${(index + Math.floor(index / width)) % 2 ? '#1c3745' : '#203d4a'}" stroke="#385561" stroke-width=".8"/>
       <path d="M7 13V7h6m38 0h6v6M7 51v6h6m38 0h6v-6" fill="none" stroke="#64808b" stroke-width="1" opacity=".4"/>
-      ${isDock ? dock(isBox) : ''}${isBox ? cargoCrate(isDock, isDock ? images.dockedCrate ?? images.crate : images.crate) : ''}
-      ${engine.player === index ? cargoBot(engine.direction, images.bot ?? images.botDirections?.[engine.direction]) : ''}`}
+      ${isDock ? dock(isBox) : ''}`}
     </g>`;
   }).join('');
   return `<svg class="warehouse-board" viewBox="-4 -4 ${width * 64 + 8} ${height * 64 + 12}" role="img" aria-label="${escapeHtml(t('game.warehouse.sceneLabel'))}">
-    <title>${escapeHtml(t('game.warehouse.sceneLabel'))}</title>${tiles}</svg>`;
+    <title>${escapeHtml(t('game.warehouse.sceneLabel'))}</title>${tiles}${actors.join('')}</svg>`;
 }
 
 export default function createRenderer({ loadSprite = getAssetSprite } = {}) {
   let host = null, keyTarget = null, onClick = null, onKey = null;
   let t = hostT, images = {};
-  let latestEngine = null, generation = 0;
+  let latestEngine = null, generation = 0, paintedEvent = null;
   return {
     kind: 'dom',
     mount(nextHost, engine, ctx = {}) {
@@ -83,6 +90,8 @@ export default function createRenderer({ loadSprite = getAssetSprite } = {}) {
       t = typeof ctx.t === 'function' ? ctx.t : hostT;
       images = { ...ctx.art?.warehouse, botDirections: { ...ctx.art?.warehouse?.botDirections } };
       onClick = event => {
+        const recovery = event.target?.closest?.('[data-warehouse-undo]');
+        if (recovery && host?.contains(recovery) && !recovery.disabled) { ctx.dispatch?.({ type: 'undo', args: [] }); return; }
         const button = event.target?.closest?.('[data-warehouse-move]');
         if (!button || !host?.contains(button) || button.disabled) return;
         const direction = button.dataset.warehouseMove;
@@ -119,20 +128,26 @@ export default function createRenderer({ loadSprite = getAssetSprite } = {}) {
     draw(engine) {
       if (!host) return;
       latestEngine = engine;
+      const motion = engine.event && engine.event !== paintedEvent ? engine.event : null;
+      paintedEvent = engine.event;
       const focusDirection = host.contains(keyTarget.activeElement) ? keyTarget.activeElement?.dataset.warehouseMove : null;
       host.dataset.warehousePlaying = String(engine.status === 'playing');
       host.innerHTML = `<section class="warehouse-scene${engine.deadlocked ? ' is-blocked' : ''}">
         <div class="warehouse-topline"><span class="warehouse-sector"><i></i>${escapeHtml(t('game.warehouse.sector', { n: String(engine.level + 1).padStart(2, '0') }))}</span><span class="warehouse-deliveries">${engine.docked}<span> / ${engine.boxes.length}</span></span></div>
-        <div class="warehouse-grid-frame">${boardMarkup(engine, images, t)}</div>
+        <div class="warehouse-grid-frame">${boardMarkup(engine, images, t, motion)}</div>
+        ${engine.deadlocked ? `<div class="warehouse-recovery" role="status"><span>${escapeHtml(t('game.warehouse.recovery'))}</span><button type="button" data-warehouse-undo ${engine.canUndo() ? '' : 'disabled'}>${escapeHtml(t('game.warehouse.undoMove'))}</button></div>` : ''}
         <div class="warehouse-console">
           <div class="warehouse-key-guide"><span class="warehouse-guide-icon">⌘</span><span>${escapeHtml(t('game.warehouse.controls'))}</span></div>
           <div class="warehouse-pad" role="group" aria-label="${escapeHtml(t('game.warehouse.padLabel'))}">
-            ${DIRECTIONS.map(direction => `<button type="button" class="warehouse-direction warehouse-${direction}${engine.hintDirection === direction ? ' is-hinted' : ''}" data-warehouse-move="${direction}" aria-label="${escapeHtml(t('game.warehouse.moveLabel', { direction: t(`game.warehouse.${direction}`) }))}" ${engine.status !== 'playing' ? 'disabled' : ''}>${ARROWS[direction]}</button>`).join('')}
+            ${DIRECTIONS.map(direction => `<button type="button" class="warehouse-direction warehouse-${direction}${engine.hintDirection === direction ? ' is-hinted' : ''}" data-warehouse-move="${direction}" aria-label="${escapeHtml(t('game.warehouse.moveLabel', { direction: t(`game.warehouse.${direction}`) }))}" ${!engine.canMove(direction) ? 'disabled' : ''}>${ARROWS[direction]}</button>`).join('')}
           </div>
           <div class="warehouse-legend"><span><i class="warehouse-dot dock"></i>${escapeHtml(t('game.warehouse.dockLabel'))}</span><span><i class="warehouse-dot cargo"></i>${escapeHtml(t('game.warehouse.cargoLabel'))}</span></div>
         </div>
       </section>`;
-      if (focusDirection) host.querySelector(`[data-warehouse-move="${focusDirection}"]`)?.focus?.({ preventScroll: true });
+      if (focusDirection) {
+        const candidate = host.querySelector(`[data-warehouse-move="${focusDirection}"]`);
+        (candidate && !candidate.disabled ? candidate : [...host.querySelectorAll('[data-warehouse-move]')].find(button => !button.disabled))?.focus?.({ preventScroll: true });
+      }
     },
     destroy() {
       generation++;
@@ -149,6 +164,7 @@ export default function createRenderer({ loadSprite = getAssetSprite } = {}) {
       t = hostT;
       images = {};
       latestEngine = null;
+      paintedEvent = null;
     },
   };
 }

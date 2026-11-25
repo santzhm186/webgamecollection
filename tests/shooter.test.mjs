@@ -146,3 +146,120 @@ test('shooter: accessible buttons and touch dragging dispatch inputs; remount/de
     renderer.destroy(); assert.ok(observers[1].disconnected); assert.equal(host.innerHTML, '');
   });
 });
+
+test('shooter: swept shots hit the nearest target and never pass through to one behind', () => {
+  const game = new Shooter(0, context); game.start();
+  const far = { id: 200, kind: 'enemy', lane: 1, z: .85, speed: 0, hp: 3, maxHp: 3 };
+  const near = { id: 201, kind: 'enemy', lane: 1, z: .88, speed: 0, hp: 3, maxHp: 3 };
+  game.entities.push(far, near);
+  game.tick(1 / 60);
+  assert.equal(near.hp, 2);
+  assert.equal(far.hp, 3);
+  assert.equal(near.hitAt, game.frame);
+});
+
+test('shooter: upgrade and shield feedback survives a later hit event', () => {
+  const game = new Shooter(0, context); game.start();
+  game.destroyTarget({ kind: 'crate', upgrade: 'shield', lane: 0, z: .5 });
+  const upgrade = { ...game.lastUpgrade };
+  game.destroyTarget({ kind: 'enemy', lane: 1, z: .5 });
+  assert.equal(game.event.type, 'hit');
+  assert.deepEqual(game.lastUpgrade, upgrade);
+  game.entities.push({ kind: 'enemy', lane: 1, z: .9599, speed: .12, hp: 8, id: 300 });
+  game.tick(1 / 60);
+  assert.equal(game.lastDamage.shield, true);
+  assert.equal(game.health, 3);
+});
+
+test('shooter: center button restores the middle lane and pause cancels touch capture', () => {
+  withBrowser(({ host }) => {
+    const game = new Shooter(0, context), renderer = createRenderer(); game.start(); game.chooseLane(2);
+    renderer.mount(host, game, { dispatch: action => game[action.type](...action.args) });
+    host.querySelector('[data-shooter-center]').click(); assert.equal(game.lane, 1);
+    const canvas = host.querySelector('canvas');
+    canvas.dispatchEvent({ type: 'pointerdown', pointerId: 9, clientX: 120, button: 0, isPrimary: true });
+    assert.ok(canvas.captured.has(9));
+    game.pause(); renderer.draw(game);
+    assert.equal(canvas.captured.size, 0);
+    assert.equal(host.querySelector('[data-shooter-center]').disabled, true);
+    game.resume(); renderer.draw(game);
+    canvas.dispatchEvent({ type: 'pointermove', pointerId: 9, clientX: 380 });
+    assert.equal(game.lane, 0, 'a stale drag cannot move after resuming');
+    renderer.destroy();
+  });
+});
+
+test('shooter: unchanged frames retain control text nodes and excess upgrades mark the goal complete', () => {
+  withBrowser(({ host }) => {
+    const game = new Shooter(0, context), renderer = createRenderer(); game.start();
+    renderer.mount(host, game);
+    const center = host.querySelector('[data-shooter-center]');
+    const text = center.childNodes[0];
+    const phase = host.querySelector('.action-phase').childNodes[0];
+    for (let i = 0; i < 20; i++) renderer.draw(game);
+    assert.equal(center.childNodes[0], text);
+    assert.equal(host.querySelector('.action-phase').childNodes[0], phase);
+    game.upgrades = 7;
+    assert.equal(game.hud()[2].value, '3 / 3 ✓');
+    assert.equal(game.metrics().upgrades, 7);
+    renderer.destroy();
+  });
+});
+
+test('shooter: one spread pickup then idle center cannot earn three stars in any campaign', () => {
+  for (let level = 0; level < LEVELS.length; level++) {
+    const game = new Shooter(level, context); game.start(); game.chooseLane(0);
+    for (let i = 0; i < 4200 && game.status === 'playing'; i++) {
+      if (game.upgrades > 0) game.chooseLane(1);
+      game.tick(1 / 60);
+    }
+    assert.ok(game.status === 'won' || game.status === 'lost');
+    assert.equal(game.upgrades, 1, `campaign ${level + 1}: center fire must not open side supply crates`);
+    assert.ok(game.stars < 3, `campaign ${level + 1}: an idle strategy must not get full stars`);
+  }
+});
+
+test('shooter: every cannon tier damages only the current lane, including side supplies', () => {
+  for (const spread of [0, 1, 2]) for (const lane of [0, 1, 2]) {
+    const game = new Shooter(0, context); game.start();
+    game.spread = spread; game.x = game.lane = lane;
+    const targets = [0, 1, 2].map(targetLane => ({
+      id: 500 + targetLane, kind: targetLane === 1 ? 'enemy' : 'crate', upgrade: 'rate',
+      lane: targetLane, z: .86, speed: 0, hp: 100, maxHp: 100,
+    }));
+    game.entities.push(...targets); game.tick(1 / 60);
+    targets.forEach(target => assert.equal(target.hp, target.lane === lane ? 100 - (spread + 1) : 100,
+      `tier ${spread + 1}, firing lane ${lane}, target lane ${target.lane}`));
+  }
+});
+
+test('shooter: upgrades follow the craft but airborne shots keep their original lane', () => {
+  const game = new Shooter(0, context); game.start(); game.x = game.lane = 0;
+  game.destroyTarget({ kind: 'crate', upgrade: 'spread', lane: 0, z: .5 });
+  game.destroyTarget({ kind: 'crate', upgrade: 'rate', lane: 0, z: .5 });
+  game.tick(1 / 60);
+  const airborne = [...game.bullets], positions = airborne.map(bullet => bullet.x);
+  assert.equal(airborne.length, 2);
+  assert.ok(airborne.every(bullet => bullet.lane === 0));
+  game.chooseLane(2);
+  for (let i = 0; i < 18; i++) game.tick(1 / 60);
+  assert.equal(game.x, 2); assert.equal(game.spread, 1); assert.equal(game.rate, 1);
+  const newShots = game.bullets.filter(bullet => !airborne.includes(bullet));
+  assert.equal(newShots.length, 2, 'the upgraded rate fires the next volley after 18 frames');
+  assert.ok(newShots.every(bullet => bullet.lane === 2 && Math.abs(bullet.x - 2) < .27));
+  assert.deepEqual(airborne.map(bullet => bullet.x), positions, 'launched shots never teleport when the craft moves');
+  assert.ok(airborne.every(bullet => bullet.lane === 0));
+});
+
+test('shooter: a volley cannot straddle two lanes while the craft is switching', () => {
+  for (const direction of [[0, 2], [2, 0]]) {
+    const game = new Shooter(0, context); game.start();
+    game.x = game.lane = direction[0]; game.spread = 2; game.chooseLane(direction[1]);
+    for (let i = 0; i < 17; i++) {
+      game.bullets = []; game.nextShot = 0; game.tick(1 / 60);
+      const lane = Math.round(game.x);
+      assert.equal(game.bullets.length, 3);
+      assert.ok(game.bullets.every(bullet => bullet.lane === lane && Math.abs(bullet.x - lane) < .5));
+    }
+  }
+});

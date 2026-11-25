@@ -1,4 +1,4 @@
-import { t, ENGINE_STATUS, SFX } from '../../src/core/host-surface.js';
+import { t, ENGINE_STATUS } from '../../src/core/host-surface.js';
 import LEVELS from './levels.js';
 import { pourAmount, poured, isComplete, isSolved, solve } from './rules.js';
 
@@ -57,16 +57,14 @@ export default class WaterSortEngine {
     this.trace.push(`${from}>${to}`);
     this.selected = null;
     this.highlight = null;
-    this.event = { from, to, amount };
+    this.event = { type: 'pour', from, to, amount };
     if (isSolved(this.tubes, this.config.capacity)) {
       this.status = ENGINE_STATUS.WON;
       this.stars = this.hints === 0 && this.moves <= this.config.steps ? 3 : this.moves <= this.config.steps + 5 ? 2 : 1;
       this.score = Math.max(100, this.stars * 400 + this.config.par * 30 - this.moves * 10 - this.hints * 40);
       this.message = this.t('game.water-sort.win', { moves: this.moves, stars: this.stars });
-      this.ctx.sfx?.(SFX.WIN);
     } else {
       this.message = this.t('game.water-sort.poured', { from: from + 1, to: to + 1, n: amount });
-      this.ctx.sfx?.(SFX.CLICK);
     }
     return true;
   }

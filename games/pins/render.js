@@ -63,6 +63,7 @@ export function pinBoard(engine, { prefix = 'pin-main', decorative = false, high
   const chapter = Math.floor((engine.level || 0) / 2);
   const chamber = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="#0c2229"/><rect x="${x + 3}" y="${y + 4}" width="${w - 6}" height="${h - 6}" rx="7" fill="url(#${prefix}-room)" stroke="#e1cb9133"/>`;
 
+  const states = [['heat', !engine.hot], ...(engine.config.gas ? [['gas', !engine.gas]] : []), ...(engine.config.spider ? [['spider', !engine.spider]] : []), ['path', engine.drained && engine.bridge]];
   return `<div class="scene temple-scene ${lost ? 'scene-failed' : ''}"><svg viewBox="0 0 480 420" aria-hidden="true">${defs(prefix)}
     <rect width="480" height="420" fill="url(#${prefix}-jungle)"/><rect width="480" height="420" fill="${['#285b45', '#3e486e', '#735242', '#31626b'][chapter % 4]}" opacity=".3"/>${foliage()}
     <ellipse cx="240" cy="400" rx="191" ry="15" fill="#061e2477"/>
@@ -91,7 +92,7 @@ export function pinBoard(engine, { prefix = 'pin-main', decorative = false, high
     </svg>${decorative ? '' : [...engine.config.pins].sort((a, b) => PIN_POINTS[a].y - PIN_POINTS[b].y || PIN_POINTS[a].x - PIN_POINTS[b].x).map(pin => { const p = PIN_POINTS[pin], removed = engine.removed.has(pin); return `<button class="temple-pin ${removed ? 'pin-pulled' : ''} ${highlight === pin ? 'hint-glow' : ''}" data-pin="${pin}" style="left:${p.x / 480 * 100}%;top:${p.y / 420 * 100}%;width:${p.width / 480 * 100}%" ${removed || engine.status !== 'playing' ? 'disabled' : ''} aria-label="${pinLabel(pin)}"><b>${pinLabel(pin)}</b><span class="pin-ring">↗</span></button>`; }).join('')}
     ${lost ? `<div class="scene-result failed-result"><span>${t('game.pins.sceneFail')}</span><small>${t('game.pins.sceneFailHint')}</small></div>` : ''}
     ${won ? `<div class="scene-result success-result"><span>${t('game.pins.sceneWin')}</span><small>${t('game.pins.sceneWinHint')}</small></div>` : ''}
-  </div>`;
+  </div>${decorative ? '' : `<div class="puzzle-readout pin-readout" aria-label="${t('game.pins.readout')}">${states.map(([key, done]) => `<span class="${done ? 'is-clear' : ''}"><i aria-hidden="true">${done ? '✓' : '●'}</i>${t(`game.pins.state${key[0].toUpperCase()}${key.slice(1)}`)}<b>${t(done ? 'game.pins.stateClear' : 'game.pins.stateWaiting')}</b></span>`).join('')}</div>`}`;
 }
 
 export function createRenderer() {
@@ -114,7 +115,7 @@ export function createRenderer() {
       host.innerHTML = pinBoard(engine, { prefix: this._prefix });
       onClick = event => {
         const button = event.target.closest?.('[data-pin]');
-        if (!button || button.disabled) return;
+        if (!button || !host?.contains(button) || button.disabled) return;
         ctx?.dispatch?.({
           type: 'pull',
           args: [button.dataset.pin],
@@ -130,10 +131,11 @@ export function createRenderer() {
       const focused = host.ownerDocument?.activeElement;
       const buttons = [...host.querySelectorAll('[data-pin]')];
       const index = buttons.indexOf(focused);
+      const focusedPin = focused?.dataset?.pin;
       host.innerHTML = pinBoard(engine, { prefix: this._prefix, ...options });
       if (index >= 0) {
         const next = [...host.querySelectorAll('[data-pin]')];
-        const candidate = next[index];
+        const candidate = next.find(button => button.dataset.pin === focusedPin);
         (candidate && !candidate.disabled ? candidate : next.find((button, i) => i >= index && !button.disabled) ?? next.find(button => !button.disabled))?.focus?.({ preventScroll: true });
       }
     },

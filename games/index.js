@@ -25,6 +25,7 @@ export const MODULES = [
   function loadWaterSort() { return import('./water-sort/manifest.js'); },
   function loadWarehouse() { return import('./warehouse/manifest.js'); },
   function loadShooter() { return import('./shooter/manifest.js'); },
+  function loadLightPath() { return import('./light-path/manifest.js'); },
 ];
 
 export default MODULES;

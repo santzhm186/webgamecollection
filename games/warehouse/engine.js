@@ -37,6 +37,10 @@ export default class WarehouseEngine {
     return true;
   }
 
+  canMove(direction) {
+    return this.status === 'playing' && Object.hasOwn(DIRECTIONS, direction) && !!transition(this.board, this.player, this.boxes, direction);
+  }
+
   move(direction) {
     if (this.status !== 'playing' || !Object.hasOwn(DIRECTIONS, direction)) return false;
     const next = transition(this.board, this.player, this.boxes, direction);
@@ -50,7 +54,7 @@ export default class WarehouseEngine {
     this.route.push(direction);
     this.hintDirection = null;
     this.deadlocked = this.boxes.some(box => this.deadSquares.has(box));
-    this.event = { type: next.pushed ? 'push' : 'walk' };
+    this.event = { type: next.pushed ? 'push' : 'walk', from: this.history.at(-1).player, to: this.player, boxTo: next.pushed ? this.boxes.find(box => !this.history.at(-1).boxes.includes(box)) : null };
     if (isSolved(this.board, this.boxes)) {
       this.status = 'won';
       this.stars = this.moves <= this.config.steps && this.hints === 0 ? 3 : this.moves <= this.config.budget ? 2 : 1;
